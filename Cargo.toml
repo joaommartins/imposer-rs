@@ -1,0 +1,18 @@
+[package]
+name = "imposer"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+description = "A small Rust library and CLI to impose single-sheet PDFs into booklets (2-up booklet imposition)."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+clap = { version = "4.2", features = ["derive"] }
+thiserror = "1.0"
+lopdf = "0.34"
+image = "0.25"
+flate2 = "1.0"
+
+[dev-dependencies]
+rstest = "0.18"
+
