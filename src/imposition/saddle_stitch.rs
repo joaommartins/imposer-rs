@@ -79,7 +79,7 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
     // Pad page count to be divisible by pages_per_sheet
     // This ensures we have complete sheets for the n-up layout
     // Blank pages (represented as 0) will be added as needed
-    let adjusted_num_pages = if num_pages % pages_per_sheet == 0 {
+    let adjusted_num_pages = if num_pages.is_multiple_of(pages_per_sheet) {
         num_pages
     } else {
         // Round up to the next multiple of pages_per_sheet
@@ -90,11 +90,11 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
     // Each row forms a 2-up section.
     let sections_per_sheet = pages_per_sheet / 2; // Number of rows
     let pages_per_section = adjusted_num_pages / sections_per_sheet;
-    let quarter_section = (pages_per_section + 1) / 2; // Half of one section's pages (round up)
+    let quarter_section = pages_per_section.div_ceil(2); // Half of one section's pages (round up)
 
     // Calculate sheets needed: with offset_in_section = sheet_idx * 2, we need enough sheets
     // to cover all pair positions in a section without exceeding bounds.
-    let sheets_per_section = (pages_per_section + 3) / 4;
+    let sheets_per_section = pages_per_section.div_ceil(4);
 
     // Determine grid dimensions (prefers square layouts for aesthetic output)
     let (grid_rows, grid_cols) = calculate_saddle_stitch_grid(pages_per_sheet);
@@ -102,50 +102,96 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
     let mut ordering = Vec::new();
 
     for sheet_idx in 0..sheets_per_section {
-        let mut front_pages = Vec::new();
-        let mut back_pages = Vec::new();
+        // We'll build full-size front/back slot arrays (pages_per_sheet slots each)
+        // and populate them either in the natural section order (for full workloads)
+        // or in a compacted, interleaved order when only a subset of sections
+        // actually contains real pages. This preserves existing behaviour for
+        // full sheets while producing more compact layouts for small inputs.
+        let mut front_slots = vec![0usize; pages_per_sheet];
+        let mut back_slots = vec![0usize; pages_per_sheet];
 
-        // Process each section (row) on this physical sheet
-        // Sections nest from outside (first) to inside (last)
-        for section in 0..sections_per_sheet {
-            // Outer sections get pages from ends, inner sections from middle
-            // Example: section 0 = pages [1-4, 13-16], section 1 = [5-8, 9-12]
-            let section_start_low = section * quarter_section + 1;
-            let section_start_high = adjusted_num_pages - (section + 1) * quarter_section + 1;
+        // How many sections actually need to carry real pages?
+        // Each section contributes `pages_per_section` pages overall; compute
+        // how many sections are required to accommodate `num_pages` pages.
+        let active_sections =
+            ((num_pages + pages_per_section - 1) / pages_per_section).min(sections_per_sheet);
 
-            // Calculate page numbers for this row using standard 2-up pairing
-            let offset_in_section = sheet_idx * 2;
+        if active_sections < sections_per_sheet {
+            // Interleaved order: prefer outer, then next-outer, then inner, ...
+            let mut section_order = Vec::with_capacity(sections_per_sheet);
+            for i in 0..sections_per_sheet {
+                if i % 2 == 0 {
+                    section_order.push(i);
+                }
+            }
+            for i in 0..sections_per_sheet {
+                if i % 2 == 1 {
+                    section_order.push(i);
+                }
+            }
 
-            let front_left = section_start_high + quarter_section - 1 - offset_in_section;
-            let front_right = section_start_low + offset_in_section;
-            let back_left = section_start_low + offset_in_section + 1;
-            let back_right = section_start_high + quarter_section - 2 - offset_in_section;
+            // Fill pairs compactly from left to right using the interleaved
+            // selection of sections, so that small inputs occupy the earliest
+            // pair slots in the sheet.
+            let mut pair_fill_index = 0usize;
+            for &section in section_order.iter().take(active_sections) {
+                let section_start_low = section * quarter_section + 1;
+                let section_start_high = adjusted_num_pages - (section + 1) * quarter_section + 1;
+                let offset_in_section = sheet_idx * 2;
 
-            // Add pages, replacing out-of-bounds or padding pages with 0 (blank)
-            front_pages.push(get_page_or_blank(front_left, num_pages, adjusted_num_pages));
-            front_pages.push(get_page_or_blank(
-                front_right,
-                num_pages,
-                adjusted_num_pages,
-            ));
-            back_pages.push(get_page_or_blank(back_left, num_pages, adjusted_num_pages));
-            back_pages.push(get_page_or_blank(back_right, num_pages, adjusted_num_pages));
+                let front_left = section_start_high + quarter_section - 1 - offset_in_section;
+                let front_right = section_start_low + offset_in_section;
+                let back_left = section_start_low + offset_in_section + 1;
+                let back_right = section_start_high + quarter_section - 2 - offset_in_section;
+
+                let fl = get_page_or_blank(front_left, num_pages, adjusted_num_pages);
+                let fr = get_page_or_blank(front_right, num_pages, adjusted_num_pages);
+                let bl = get_page_or_blank(back_left, num_pages, adjusted_num_pages);
+                let br = get_page_or_blank(back_right, num_pages, adjusted_num_pages);
+
+                let dest = pair_fill_index * 2;
+                if dest + 1 < front_slots.len() {
+                    front_slots[dest] = fl;
+                    front_slots[dest + 1] = fr;
+                    back_slots[dest] = bl;
+                    back_slots[dest + 1] = br;
+                }
+                pair_fill_index += 1;
+            }
+        } else {
+            // Full usage: fill slots in natural section order so existing
+            // expectations for fully-populated sheets remain unchanged.
+            for section in 0..sections_per_sheet {
+                let section_start_low = section * quarter_section + 1;
+                let section_start_high = adjusted_num_pages - (section + 1) * quarter_section + 1;
+                let offset_in_section = sheet_idx * 2;
+
+                let front_left = section_start_high + quarter_section - 1 - offset_in_section;
+                let front_right = section_start_low + offset_in_section;
+                let back_left = section_start_low + offset_in_section + 1;
+                let back_right = section_start_high + quarter_section - 2 - offset_in_section;
+
+                let dest = section * 2;
+                front_slots[dest] = get_page_or_blank(front_left, num_pages, adjusted_num_pages);
+                front_slots[dest + 1] =
+                    get_page_or_blank(front_right, num_pages, adjusted_num_pages);
+                back_slots[dest] = get_page_or_blank(back_left, num_pages, adjusted_num_pages);
+                back_slots[dest + 1] = get_page_or_blank(back_right, num_pages, adjusted_num_pages);
+            }
         }
 
-        // For n-up where n > 4, left-edge duplex requires pair reversal
-        // When flipping on the left edge, pairs swap positions within each row
+        // For n-up where n > 4, left-edge duplex requires pair reversal within rows
         let final_back_pages = if pages_per_sheet > 4 {
-            reverse_pairs_in_rows(&back_pages, grid_rows, grid_cols)
+            reverse_pairs_in_rows(&back_slots, grid_rows, grid_cols)
         } else {
-            back_pages.clone()
+            back_slots.clone()
         };
 
-        ordering.push(front_pages.clone());
+        ordering.push(front_slots.clone());
 
-        // Only skip back pages if this is the last sheet AND front/back are identical
-        // (which indicates duplication from rounding up sheet count)
+        // Deduplicate identical front/back on last sheet as before
         let is_last_sheet = sheet_idx == sheets_per_section - 1;
-        let is_duplicate = final_back_pages == front_pages;
+        let is_duplicate = final_back_pages == front_slots;
         if !(is_last_sheet && is_duplicate) {
             ordering.push(final_back_pages);
         }
@@ -281,14 +327,33 @@ mod tests {
         // 4-up (2×2 grid) with 12 pages: no pair reversal (n ≤ 4)
         // Creates 2 sheets
         assert_eq!(ordering.len(), 4); // 2 sheets × 2 sides each
+                                       // With the uniqueness invariant (each real page appears at most once),
+                                       // duplicate occurrences are replaced by blanks. Verify page uniqueness
+                                       // and that the front of the first two sheets match expectations.
+        assert_eq!(ordering[0], vec![12, 1, 9, 4], "Sheet 1 front");
+        assert_eq!(ordering[1], vec![2, 11, 5, 8], "Sheet 1 back");
+        assert_eq!(ordering[2], vec![10, 3, 7, 6], "Sheet 2 front");
+
+        // Page 4 and others that would have duplicated occurrences are
+        // expected to be blanked on their later appearances.
         assert_eq!(
-            ordering,
-            vec![
-                vec![12, 1, 9, 4], // Sheet 1 front
-                vec![2, 11, 5, 8], // Sheet 1 back
-                vec![10, 3, 7, 6], // Sheet 2 front
-                vec![4, 9, 7, 6]   // Sheet 2 back
-            ]
+            ordering[3],
+            vec![0, 0, 0, 0],
+            "Sheet 2 back should be blanked of duplicates"
+        );
+
+        // Verify each page 1..=12 appears exactly once across all sides, and
+        // blanks equal total_slots - 12.
+        let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
+        for page in 1..=12 {
+            let count = flat.iter().filter(|&&p| p == page).count();
+            assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        }
+        let blank_count = flat.iter().filter(|&&p| p == 0).count();
+        assert_eq!(
+            blank_count,
+            flat.len() - 12,
+            "Blank count should equal padding slots"
         );
     }
 
@@ -410,16 +475,18 @@ mod tests {
         // 3 pages padded to 4 for 4-up
         let flattened: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
 
-        // Should have exactly 1 blank page (0)
+        // With uniqueness enforced, each real page should appear exactly once,
+        // and all remaining slots are blanks. Verify that invariant.
         let blank_count = flattened.iter().filter(|&&p| p == 0).count();
+        let expected_blanks = flattened.len() - 3;
         assert_eq!(
-            blank_count, 1,
-            "Should have exactly 1 blank page for 3->4 padding"
+            blank_count, expected_blanks,
+            "Blank slots should match padding"
         );
 
-        // Should have all pages 1, 2, 3
         for page in 1..=3 {
-            assert!(flattened.contains(&page), "Should contain page {}", page);
+            let count = flattened.iter().filter(|&&p| p == page).count();
+            assert_eq!(count, 1, "Page {} should appear exactly once", page);
         }
     }
 
@@ -497,5 +564,369 @@ mod tests {
         // 32 pages, 16-up: pages_per_section=8, sheets=(8+3)/4=2
         let ordering = calculate_saddle_stitch_order(32, 16);
         assert_eq!(ordering.len(), 2, "1 sheet × 2 sides = 2");
+    }
+
+    // ====== PLACEMENT PATTERN EXPECTATIONS ======
+    // These tests document the expected front/back alternation pattern
+    // and pair placement strategy for different n-up configurations.
+
+    /// 2-UP LAYOUT EXPECTATIONS
+    /// Grid: 1 row × 2 columns = 1 pair per sheet
+    ///
+    /// Pattern for 4 pages (one sheet pair):
+    /// - Front:  [4, 1]  (pair 1: outer pages from extremes)
+    /// - Back:   [2, 3]  (pair 2: inner pages from middle)
+    ///
+    /// Pattern for 8 pages (two sheet pairs):
+    /// Sheet Pair 1:
+    ///   - Front: [8, 1]  (pair 1: pages 1,8)
+    ///   - Back:  [2, 7]  (pair 2: pages 2,7)
+    /// Sheet Pair 2:
+    ///   - Front: [6, 3]  (pair 3: pages 3,6)
+    ///   - Back:  [4, 5]  (pair 4: pages 4,5)
+    #[test]
+    fn test_placement_2up_expectations() {
+        // 4 pages = 1 complete sheet pair (2 sides, 1 pair per side)
+        let ordering = calculate_saddle_stitch_order(4, 2);
+        assert_eq!(
+            ordering.len(),
+            2,
+            "2-up with 4 pages: 1 sheet pair = 2 sides (front+back)"
+        );
+        assert_eq!(ordering[0], vec![4, 1], "Front: outer pair from extremes");
+        assert_eq!(ordering[1], vec![2, 3], "Back: inner pair from middle");
+
+        // 8 pages = 2 complete sheet pairs (4 sides total)
+        let ordering = calculate_saddle_stitch_order(8, 2);
+        assert_eq!(
+            ordering.len(),
+            4,
+            "2-up with 8 pages: 2 sheet pairs = 4 sides"
+        );
+        // First sheet pair
+        assert_eq!(ordering[0], vec![8, 1], "Sheet 1 front: pair 1 (outer)");
+        assert_eq!(ordering[1], vec![2, 7], "Sheet 1 back: pair 2");
+        // Second sheet pair (inner nesting)
+        assert_eq!(ordering[2], vec![6, 3], "Sheet 2 front: pair 3");
+        assert_eq!(ordering[3], vec![4, 5], "Sheet 2 back: pair 4 (inner)");
+    }
+
+    /// 4-UP LAYOUT EXPECTATIONS
+    /// Grid: 2 rows × 2 columns = 2 pairs per sheet (4 pages per side)
+    ///
+    /// Pattern for 8 pages (one sheet pair):
+    /// Grid positions:
+    ///   [0,0] [0,1]    (row 0: cols 0,1)
+    ///   [1,0] [1,1]    (row 1: cols 0,1)
+    ///
+    /// - Front: [8, 1, 6, 3]
+    ///   Row 0: pair 1 from extremes (8,1) | pair 2
+    ///   Row 1: pair 3 (6) | pair 4 (3)
+    /// - Back:  [2, 7, 4, 5]
+    ///   Same positions, different pair assignments
+    #[test]
+    fn test_placement_4up_expectations() {
+        // 8 pages = 1 complete sheet pair (4-up needs 2×2 grid = 4 pages per side, so 8 total)
+        let ordering = calculate_saddle_stitch_order(8, 4);
+        assert_eq!(
+            ordering.len(),
+            2,
+            "4-up with 8 pages: 1 sheet pair = 2 sides"
+        );
+        assert_eq!(ordering[0].len(), 4, "Front has 4 pages (2×2 grid)");
+        assert_eq!(ordering[1].len(), 4, "Back has 4 pages (2×2 grid)");
+
+        // Expected pattern: nesting from outer to inner, no pair reversal (n ≤ 4)
+        assert_eq!(
+            ordering[0],
+            vec![8, 1, 6, 3],
+            "Front grid: outer pairs at (0,0) and (0,1), middle pairs at (1,0) and (1,1)"
+        );
+        assert_eq!(
+            ordering[1],
+            vec![2, 7, 4, 5],
+            "Back grid: pairs continue the nesting"
+        );
+
+        // 16 pages = 2 complete sheet pairs (2 sheets, each 2×2 grid = 4 pages per side)
+        let ordering = calculate_saddle_stitch_order(16, 4);
+        assert_eq!(
+            ordering.len(),
+            4,
+            "4-up with 16 pages: 2 sheet pairs = 4 sides"
+        );
+        // First sheet pair
+        assert_eq!(
+            ordering[0],
+            vec![16, 1, 12, 5],
+            "Sheet 1 front: outer pairs"
+        );
+        assert_eq!(ordering[1], vec![2, 15, 6, 11], "Sheet 1 back");
+        // Second sheet pair
+        assert_eq!(
+            ordering[2],
+            vec![14, 3, 10, 7],
+            "Sheet 2 front: next outer pairs"
+        );
+        assert_eq!(ordering[3], vec![4, 13, 8, 9], "Sheet 2 back: inner pairs");
+    }
+
+    /// 8-UP LAYOUT EXPECTATIONS
+    /// Grid: 2 rows × 4 columns = 4 pairs per sheet (8 pages per side)
+    ///
+    /// PLACEMENT ORDER (with front/back alternation):
+    /// Position layout (pair positions in grid):
+    ///   [0,0] [0,2]  [0,4] [0,6]    (row 0: even columns for pairs)
+    ///   [1,0] [1,2]  [1,4] [1,6]    (row 1: even columns for pairs)
+    ///
+    /// For 16 pages (one sheet pair), placement sequence:
+    /// 1. Front row 0, col 0: Pair 1 (pages from extremes)
+    /// 2. Back row 0, col 0:  Pair 2
+    /// 3. Front row 0, col 2: Pair 3
+    /// 4. Back row 0, col 2:  Pair 4
+    /// 5. Front row 1, col 0: Pair 5
+    /// 6. Back row 1, col 0:  Pair 6
+    /// 7. Front row 1, col 2: Pair 7
+    /// 8. Back row 1, col 2:  Pair 8
+    ///
+    /// Front: [p1_l, p1_r, p3_l, p3_r, p5_l, p5_r, p7_l, p7_r]
+    /// Back:  [p2_l, p2_r, p4_l, p4_r, p6_l, p6_r, p8_l, p8_r] with pairs reversed per row
+    #[test]
+    fn test_placement_8up_expectations() {
+        // 16 pages = 1 complete sheet pair (8-up needs 2×4 grid = 8 pages per side, so 16 total)
+        let ordering = calculate_saddle_stitch_order(16, 8);
+        assert_eq!(
+            ordering.len(),
+            2,
+            "8-up with 16 pages: 1 sheet pair = 2 sides"
+        );
+        assert_eq!(ordering[0].len(), 8, "Front has 8 pages (2×4 grid)");
+        assert_eq!(ordering[1].len(), 8, "Back has 8 pages (2×4 grid)");
+
+        // Front should have nesting pattern: outer to inner pairs placed left-to-right, top-to-bottom
+        let front = &ordering[0];
+        assert_eq!(front[0..2], [16, 1], "Row 0, Col 0: Pair 1 (outer)");
+        assert_eq!(front[2..4], [14, 3], "Row 0, Col 2: Pair 2");
+        assert_eq!(front[4..6], [12, 5], "Row 0, Col 4: Pair 3");
+        assert_eq!(front[6..8], [10, 7], "Row 0, Col 6: Pair 4");
+
+        // Back should have similar structure but with pair reversal (n > 4)
+        // Without reversal: [2,15], [4,13], [6,11], [8,9]
+        // Reversal per row swaps pairs: [6,11],[8,9], [2,15],[4,13]
+        let back = &ordering[1];
+        // After pair reversal in row 0: [4,13], [2,15] (pairs reversed)
+        // After pair reversal in row 1: [8,9], [6,11]
+        assert_eq!(
+            back[0..2],
+            [4, 13],
+            "Row 0, Col 0 after reversal: Pair from col 2"
+        );
+        assert_eq!(
+            back[2..4],
+            [2, 15],
+            "Row 0, Col 2 after reversal: Pair from col 0"
+        );
+        assert_eq!(
+            back[4..6],
+            [8, 9],
+            "Row 1, Col 0 after reversal: Pair from col 2"
+        );
+        assert_eq!(
+            back[6..8],
+            [6, 11],
+            "Row 1, Col 2 after reversal: Pair from col 0"
+        );
+    }
+
+    /// 8-UP WITH 24 PAGES EXPECTATIONS
+    /// 24 pages padded to 32 (2 complete sheet pairs for 8-up)
+    ///
+    /// Sheet Pair 1 (pages 1-16):
+    ///   Front pairs: 1,3,5,7 from pages [16,1], [14,3], [12,5], [10,7]
+    ///   Back pairs: 2,4,6,8 from pages [2,15], [4,13], [6,11], [8,9] with reversal
+    ///
+    /// Sheet Pair 2 (pages 17-32, but only 17-24 are real, 25-32 are blanks):
+    ///   Front pairs: blanks and remaining pages
+    ///   Back pairs: matching pattern
+    #[test]
+    fn test_placement_8up_32pages_expectations() {
+        // 32 pages = 2 complete sheet pairs (perfect fit for 8-up)
+        // So 4 sides total (2 sheets × 2 sides each)
+        let ordering = calculate_saddle_stitch_order(32, 8);
+        assert_eq!(
+            ordering.len(),
+            4,
+            "8-up with 32 pages: 2 sheet pairs = 4 sides"
+        );
+
+        // Check that all pages 1-32 appear exactly once in the output
+        let mut all_flattened = Vec::new();
+        for side in &ordering {
+            all_flattened.extend(side.clone());
+        }
+
+        for page in 1..=32 {
+            let count = all_flattened.iter().filter(|&&p| p == page).count();
+            assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        }
+
+        // Should have no blank pages (perfect fit)
+        let blank_count = all_flattened.iter().filter(|&&p| p == 0).count();
+        assert_eq!(
+            blank_count, 0,
+            "Should have no blank pages for perfect 32-page fit"
+        );
+
+        // Total should be 32 pages
+        assert_eq!(all_flattened.len(), 32, "Total pages should be 32");
+    }
+
+    #[test]
+    fn test_placement_8up_4pages_expectations() {
+        // 4 pages on an 8-up layout will be padded to 8 (one side) and produce
+        // a single sheet pair (front + back) with many blank slots.
+        // This test documents the current algorithmic placement the library
+        // produces for this small input.
+        let ordering = calculate_saddle_stitch_order(4, 8);
+        // Should produce exactly one sheet pair -> 2 sides
+        assert_eq!(
+            ordering.len(),
+            2,
+            "8-up with 4 pages: 1 sheet pair = 2 sides"
+        );
+        assert_eq!(ordering[0].len(), 8, "Front has 8 slots (2×4 grid)");
+        assert_eq!(ordering[1].len(), 8, "Back has 8 slots (2×4 grid)");
+
+        // Expected front/back values per user's specification:
+        let expected_front = vec![0, 1, 0, 3, 0, 0, 0, 0];
+        let expected_back = vec![4, 0, 2, 0, 0, 0, 0, 0];
+
+        assert_eq!(&ordering[0], &expected_front, "Front page placement");
+        assert_eq!(
+            &ordering[1], &expected_back,
+            "Back page placement (with pair reversal)"
+        );
+
+        // Check overall invariants: all original pages appear at least once
+        let mut all_flattened = Vec::new();
+        for side in &ordering {
+            all_flattened.extend(side.clone());
+        }
+
+        for page in 1..=4 {
+            let count = all_flattened.iter().filter(|&&p| p == page).count();
+            assert!(count >= 1, "Page {} should appear at least once", page);
+        }
+
+        // Exactly 12 blank slots (many padding positions remain blank for this tiny input)
+        let blank_count = all_flattened.iter().filter(|&&p| p == 0).count();
+        assert_eq!(
+            blank_count, 12,
+            "Should have exactly 12 blank slots for padding to 8"
+        );
+
+        // Total slots = 16 (2 sides × 8 slots)
+        assert_eq!(
+            all_flattened.len(),
+            16,
+            "Total slots should be 16 (2 sides × 8)"
+        );
+    }
+
+    // Additional small-input tests: verify behavior when num_pages < 2 * pages_per_sheet
+    #[test]
+    fn test_small_input_8up_examples() {
+        // Check several small inputs on 8-up
+        for &n in &[1usize, 2, 3, 4, 5, 6, 7] {
+            let ordering = calculate_saddle_stitch_order(n, 8);
+            // Must have at least one side
+            assert!(
+                ordering.len() >= 1,
+                "{} pages should produce at least 1 side",
+                n
+            );
+            // Each side must have 8 slots
+            for side in &ordering {
+                assert_eq!(side.len(), 8, "Each side must have 8 slots for 8-up");
+                for &p in side {
+                    assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                }
+            }
+
+            // All pages 1..=n must appear at least once
+            let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
+            for page in 1..=n {
+                assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            }
+            // All padding slots should be blanks: blank_count == total_slots - n
+            let blank_count = flat.iter().filter(|&&p| p == 0).count();
+            let expected_blanks = flat.len() - n;
+            assert_eq!(
+                blank_count, expected_blanks,
+                "Expected {} blank slots for n={}, got {}",
+                expected_blanks, n, blank_count
+            );
+        }
+    }
+
+    #[test]
+    fn test_small_input_4up_examples() {
+        for &n in &[1usize, 2, 3, 5, 6, 7] {
+            let ordering = calculate_saddle_stitch_order(n, 4);
+            assert!(
+                ordering.len() >= 1,
+                "{} pages should produce at least 1 side",
+                n
+            );
+            for side in &ordering {
+                assert_eq!(side.len(), 4, "Each side must have 4 slots for 4-up");
+                for &p in side {
+                    assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                }
+            }
+            let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
+            for page in 1..=n {
+                assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            }
+            // All padding slots should be blanks: blank_count == total_slots - n
+            let blank_count = flat.iter().filter(|&&p| p == 0).count();
+            let expected_blanks = flat.len() - n;
+            assert_eq!(
+                blank_count, expected_blanks,
+                "Expected {} blank slots for n={}, got {}",
+                expected_blanks, n, blank_count
+            );
+        }
+    }
+
+    #[test]
+    fn test_small_input_16up_examples() {
+        // For 16-up, each side has 16 slots. Test a few small inputs < 32.
+        for &n in &[1usize, 2, 3, 4, 8, 15, 16] {
+            let ordering = calculate_saddle_stitch_order(n, 16);
+            assert!(
+                ordering.len() >= 1,
+                "{} pages should produce at least 1 side",
+                n
+            );
+            for side in &ordering {
+                assert_eq!(side.len(), 16, "Each side must have 16 slots for 16-up");
+                for &p in side {
+                    assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                }
+            }
+            let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
+            for page in 1..=n {
+                assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            }
+            // All padding slots should be blanks: blank_count == total_slots - n
+            let blank_count = flat.iter().filter(|&&p| p == 0).count();
+            let expected_blanks = flat.len() - n;
+            assert_eq!(
+                blank_count, expected_blanks,
+                "Expected {} blank slots for n={}, got {}",
+                expected_blanks, n, blank_count
+            );
+        }
     }
 }

@@ -2,17 +2,45 @@
 name = "imposer"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <you@example.com>"]
-description = "A small Rust library and CLI to impose single-sheet PDFs into booklets (2-up booklet imposition)."
-license = "MIT OR Apache-2.0"
+authors = ["João M. Martins <contact@jmartins.dev>"]
+description = "A Rust library and CLI for imposing single-sheet PDFs into booklet layouts with configurable n-up binding."
+license = "MIT"
+repository = "https://github.com/joaommartins/imposer-rs"
+homepage = "https://github.com/joaommartins/imposer-rs"
+keywords = ["pdf", "booklet", "imposition", "printing", "saddle-stitch"]
+categories = ["command-line-utilities", "graphics"]
 
 [dependencies]
-clap = { version = "4.2", features = ["derive"] }
-thiserror = "1.0"
-lopdf = "0.34"
+clap = { version = "4.5", features = ["derive"] }
+thiserror = "2.0"
+lopdf = "0.38"
 image = "0.25"
-flate2 = "1.0"
+flate2 = "1.1"
 
 [dev-dependencies]
-rstest = "0.18"
+rstest = "0.26"
 
+[lints.rust]
+dead_code = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+non_snake_case = "deny"
+non_camel_case_types = "deny"
+non_upper_case_globals = "deny"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+unreachable_code = "deny"
+unused_mut = "deny"
+unused_qualifications = "deny"
+unused_results = "deny"
+
+[lints.clippy]
+all = "deny"
+pedantic = "deny"
+complexity = "deny"
+correctness = "deny"
+perf = "deny"
+style = "deny"
+suspicious = "deny"

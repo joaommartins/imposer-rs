@@ -1,0 +1,30 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: trailing-whitespace
+-   repo: https://github.com/backplane/pre-commit-rust-hooks
+    rev: v1.1.0
+    hooks:
+    -   id: fmt
+    -   id: check
+    -   id: clippy
+        args: [
+          "--fix",
+          "--no-deps",
+          "--broken-code",
+          "--allow-dirty",
+          "--allow-staged",
+          "--allow-no-vcs",
+        ]
+- repo: local
+  hooks:
+    - id: cargo nextest
+      name: cargo nextest
+      entry: cargo nextest run
+      language: rust
+      types: [rust]
+      pass_filenames: false
+      always_run: true

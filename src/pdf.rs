@@ -1,11 +1,13 @@
-use crate::config::BookletConfig;
+use crate::config::{
+    BindingType, BookletConfig, Dimensions, GridLayout, ImpositionLayout, Scale, SheetPages,
+};
 use crate::error::{BookletError, Result};
 use crate::imposition::calculate_page_order;
 use lopdf::{Dictionary, Document, Object, ObjectId};
 
 /// Calculate the grid layout (rows, cols) for n-up imposition
 ///
-/// Returns (rows, cols) tuple where rows * cols = pages_per_sheet
+/// Returns (rows, cols) tuple where rows * cols = `pages_per_sheet`
 /// Attempts to create a roughly square grid, preferring more columns than rows
 /// for landscape orientation.
 fn calculate_grid_layout(pages_per_sheet: usize) -> (usize, usize) {
@@ -14,11 +16,17 @@ fn calculate_grid_layout(pages_per_sheet: usize) -> (usize, usize) {
     }
 
     // Find the largest factor <= sqrt(n) for rows
-    let sqrt = (pages_per_sheet as f64).sqrt() as usize;
+    // Note: usize to f64 precision loss is acceptable for grid calculations
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let sqrt = (pages_per_sheet as f64).sqrt().floor() as usize;
     let mut rows = 1;
 
     for r in (1..=sqrt).rev() {
-        if pages_per_sheet % r == 0 {
+        if pages_per_sheet.is_multiple_of(r) {
             rows = r;
             break;
         }
@@ -52,6 +60,7 @@ fn calculate_grid_layout(pages_per_sheet: usize) -> (usize, usize) {
 ///
 /// Returns `BookletError::ParseError` if the input PDF cannot be parsed.
 /// Returns `BookletError::GenerationError` if the output PDF cannot be generated.
+#[expect(clippy::too_many_lines)]
 pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) -> Result<Vec<u8>> {
     // Parse the input PDF
     let doc = Document::load_mem(input_pdf).map_err(|e| BookletError::ParseError(e.to_string()))?;
@@ -85,7 +94,11 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     // For the output page, we need to fit grid_cols × grid_rows of these pages
     // The output aspect ratio should be approximately:
     // (cols * source_width) / (rows * source_height) = cols / (rows * source_aspect)
-    let grid_aspect = (grid_cols as f32) / (grid_rows as f32 * source_aspect);
+    // Note: u32 to f32 precision loss is acceptable for reasonable grid sizes (max 1024)
+    let grid_cols_u32 = u32::try_from(grid_cols).unwrap_or(1);
+    let grid_rows_u32 = u32::try_from(grid_rows).unwrap_or(1);
+    #[expect(clippy::cast_precision_loss)]
+    let grid_aspect = (grid_cols_u32 as f32) / ((grid_rows_u32 as f32) * source_aspect);
 
     // Choose output orientation based on grid aspect ratio
     let (output_width, output_height) = if grid_aspect > 1.0 {
@@ -105,8 +118,10 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     };
 
     // Calculate how much space each page slot gets
-    let page_slot_width = output_width / grid_cols as f32;
-    let page_slot_height = output_height / grid_rows as f32;
+    #[expect(clippy::cast_precision_loss)]
+    let page_slot_width = output_width / (grid_cols_u32 as f32);
+    #[expect(clippy::cast_precision_loss)]
+    let page_slot_height = output_height / (grid_rows_u32 as f32);
 
     // Calculate scaling if needed
     let (scale_x, scale_y) = if config.scale_to_fit {
@@ -148,7 +163,7 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     catalog.set("Type", Object::Name(b"Catalog".to_vec()));
     catalog.set("Pages", Object::Reference(pages_id));
 
-    output_doc
+    let _ = output_doc
         .objects
         .insert(catalog_id, Object::Dictionary(catalog));
     output_doc
@@ -160,35 +175,31 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     let mut object_cache = std::collections::HashMap::new();
 
     for page_nums in page_order {
-        let page_id = create_imposed_page_nup(
+        let sheet_page_id = create_imposed_page_nup(
             &mut output_doc,
             &doc,
-            &page_list,
-            &page_nums,
-            grid_rows,
-            grid_cols,
-            page_slot_width,
-            page_slot_height,
-            output_width,
-            output_height,
-            source_page_width,
-            source_page_height,
+            SheetPages::new(&page_list, &page_nums),
+            ImpositionLayout::new(
+                GridLayout::new(grid_rows, grid_cols),
+                Dimensions::new(page_slot_width, page_slot_height),
+                Dimensions::new(output_width, output_height),
+                Dimensions::new(source_page_width, source_page_height),
+                Scale::new(scale_x, scale_y),
+            ),
             pages_id,
             &mut object_cache,
-            scale_x,
-            scale_y,
-            config.draw_guides,
-            config.number_pages,
-            config.binding_type,
-            config.pages_per_sheet,
+            config,
         )?;
-        page_refs.push(Object::Reference(page_id));
+        page_refs.push(Object::Reference(sheet_page_id));
     }
 
     // Update pages dictionary with all page references
     pages_dict.set("Type", Object::Name(b"Pages".to_vec()));
     pages_dict.set("Kids", Object::Array(page_refs.clone()));
-    pages_dict.set("Count", Object::Integer(page_refs.len() as i64));
+    pages_dict.set(
+        "Count",
+        Object::Integer(i64::try_from(page_refs.len()).unwrap_or(i64::MAX)),
+    );
     pages_dict.set(
         "MediaBox",
         Object::Array(vec![
@@ -199,7 +210,7 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
         ]),
     );
 
-    output_doc
+    let _ = output_doc
         .objects
         .insert(pages_id, Object::Dictionary(pages_dict));
 
@@ -213,22 +224,22 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
 }
 
 /// Get the dimensions of a page (width, height)
-fn get_page_dimensions(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Result<(f32, f32)> {
+fn get_page_dimensions(doc: &Document, page_id: ObjectId) -> Result<(f32, f32)> {
     // Get the page object
     let page_obj = doc
         .get_object(page_id)
-        .map_err(|e| BookletError::ParseError(format!("Failed to get page object: {}", e)))?;
+        .map_err(|e| BookletError::ParseError(format!("Failed to get page object: {e}")))?;
 
     // Extract page dictionary
     let page_dict = page_obj
         .as_dict()
-        .map_err(|e| BookletError::ParseError(format!("Page is not a dictionary: {}", e)))?;
+        .map_err(|e| BookletError::ParseError(format!("Page is not a dictionary: {e}")))?;
 
     // Get MediaBox (may be inherited from parent)
     let media_box = page_dict
         .get(b"MediaBox")
         .and_then(|obj| obj.as_array())
-        .map_err(|e| BookletError::ParseError(format!("Invalid MediaBox: {}", e)))?;
+        .map_err(|e| BookletError::ParseError(format!("Invalid MediaBox: {e}")))?;
 
     if media_box.len() < 4 {
         return Err(BookletError::ParseError(
@@ -248,31 +259,24 @@ fn get_page_dimensions(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Resul
 }
 
 /// Create a single imposed page with n source pages arranged in a grid
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_lines)]
 fn create_imposed_page_nup(
-    output_doc: &mut lopdf::Document,
-    source_doc: &lopdf::Document,
-    page_list: &[(u32, lopdf::ObjectId)],
-    page_nums: &[usize],
-    grid_rows: usize,
-    grid_cols: usize,
-    page_slot_width: f32,
-    page_slot_height: f32,
-    output_width: f32,
-    output_height: f32,
-    source_page_width: f32,
-    source_page_height: f32,
-    pages_id: lopdf::ObjectId,
-    cache: &mut std::collections::HashMap<lopdf::ObjectId, lopdf::ObjectId>,
-    scale_x: f32,
-    scale_y: f32,
-    draw_guides: bool,
-    number_pages: bool,
-    binding_type: crate::config::BindingType,
-    pages_per_sheet: usize,
-) -> Result<lopdf::ObjectId> {
+    output_doc: &mut Document,
+    source_doc: &Document,
+    sheet_pages: SheetPages,
+    layout: ImpositionLayout,
+    pages_id: ObjectId,
+    cache: &mut std::collections::HashMap<ObjectId, ObjectId>,
+    config: &BookletConfig,
+) -> Result<ObjectId> {
     use lopdf::content::{Content, Operation};
     use lopdf::{Dictionary, Object, Stream};
+
+    // Extract config values
+    let draw_guides = config.draw_guides;
+    let number_pages = config.number_pages;
+    let binding_type = config.binding_type;
+    let pages_per_sheet = config.pages_per_sheet;
 
     // Create resources dictionary for XObjects
     let mut resources = Dictionary::new();
@@ -282,16 +286,20 @@ fn create_imposed_page_nup(
     let mut operations = Vec::new();
 
     // Process each page in the grid (reading order: left-to-right, top-to-bottom)
-    for (slot_index, &page_num) in page_nums.iter().enumerate() {
-        if page_num > 0 && page_num <= page_list.len() {
+    for (slot_index, &page_num) in sheet_pages.page_nums.iter().enumerate() {
+        if page_num > 0 && page_num <= sheet_pages.all_pages.len() {
             // Calculate grid position (row, col) for this slot
             // Pages fill left-to-right, top-to-bottom
-            let row = slot_index / grid_cols;
-            let col = slot_index % grid_cols;
+            let row = slot_index / layout.grid.cols;
+            let col = slot_index % layout.grid.cols;
 
-            let slot_x = page_slot_width * col as f32;
+            let col_u32 = u32::try_from(col).unwrap_or(0);
+            let row_u32 = u32::try_from(row).unwrap_or(0);
+            #[expect(clippy::cast_precision_loss)]
+            let slot_x = layout.slot.width * (col_u32 as f32);
             // PDF coordinates start at bottom-left, so we need to flip the row
-            let slot_y = output_height - page_slot_height * (row + 1) as f32;
+            #[expect(clippy::cast_precision_loss)]
+            let slot_y = layout.output.height - layout.slot.height * ((row_u32 + 1) as f32);
 
             // Add operations to place page with scaling and clipping
             operations.push(Operation::new("q", vec![])); // Save graphics state
@@ -302,8 +310,8 @@ fn create_imposed_page_nup(
                 vec![
                     slot_x.into(),
                     slot_y.into(),
-                    page_slot_width.into(),
-                    page_slot_height.into(),
+                    layout.slot.width.into(),
+                    layout.slot.height.into(),
                 ],
             ));
             operations.push(Operation::new("W", vec![])); // Clip
@@ -317,32 +325,33 @@ fn create_imposed_page_nup(
                     vec![
                         slot_x.into(),
                         slot_y.into(),
-                        page_slot_width.into(),
-                        page_slot_height.into(),
+                        layout.slot.width.into(),
+                        layout.slot.height.into(),
                     ],
                 ));
                 operations.push(Operation::new("S", vec![])); // Stroke the rectangle
 
                 // Check if this position needs rotation (4-up perfect binding, top row)
-                let needs_rotation = binding_type == crate::config::BindingType::PerfectBound
-                    && pages_per_sheet == 4
-                    && row == 0;
+                let needs_rotation =
+                    binding_type == BindingType::PerfectBound && pages_per_sheet == 4 && row == 0;
 
                 // Draw the page number in the center
                 let page_num_str = if needs_rotation {
-                    format!("{}↻", page_num) // Add rotation indicator
+                    format!("{page_num}↻") // Add rotation indicator
                 } else {
-                    format!("{}", page_num)
+                    format!("{page_num}")
                 };
-                let font_size = (page_slot_height / 3.0)
-                    .min(page_slot_width / 2.0)
+                let font_size = (layout.slot.height / 3.0)
+                    .min(layout.slot.width / 2.0)
                     .min(144.0);
 
                 // Estimate text width (rough approximation: 0.6 * font_size per digit for bold font)
-                let text_width = page_num_str.len() as f32 * font_size * 0.6;
+                let str_len_u32 = u32::try_from(page_num_str.len()).unwrap_or(0);
+                #[expect(clippy::cast_precision_loss)]
+                let text_width = (str_len_u32 as f32) * font_size * 0.6;
 
-                let text_x = slot_x + page_slot_width / 2.0 - text_width / 2.0;
-                let text_y = slot_y + page_slot_height / 2.0 - font_size / 3.0;
+                let text_x = slot_x + layout.slot.width / 2.0 - text_width / 2.0;
+                let text_y = slot_y + layout.slot.height / 2.0 - font_size / 3.0;
 
                 operations.push(Operation::new("BT", vec![])); // Begin text
                 operations.push(Operation::new("Tf", vec!["F1".into(), font_size.into()]));
@@ -357,25 +366,24 @@ fn create_imposed_page_nup(
                 operations.push(Operation::new("ET", vec![])); // End text
             } else {
                 // Place actual page content
-                let source_page_id = page_list[page_num - 1].1;
+                let source_page_id = sheet_pages.all_pages[page_num - 1].1;
                 if let Ok(xobj_id) = create_form_xobject(
                     output_doc,
                     source_doc,
                     source_page_id,
-                    source_page_width,
-                    source_page_height,
+                    layout.source.width,
+                    layout.source.height,
                     cache,
                 ) {
-                    let page_name = format!("Page{}", slot_index);
+                    let page_name = format!("Page{slot_index}");
                     xobjects.set(page_name.as_bytes().to_vec(), Object::Reference(xobj_id));
 
                     // Calculate the scaled page dimensions
-                    let scaled_width = source_page_width * scale_x;
-                    let scaled_height = source_page_height * scale_y;
-
+                    let scaled_width = layout.source.width * layout.scale.x;
+                    let scaled_height = layout.source.height * layout.scale.y;
                     // Check if this page needs to be rotated 180 degrees
                     // For 4-up perfect binding, top row pages (row 0) are upside down
-                    let needs_rotation = binding_type == crate::config::BindingType::PerfectBound
+                    let needs_rotation = binding_type == BindingType::PerfectBound
                         && pages_per_sheet == 4
                         && row == 0;
 
@@ -384,8 +392,8 @@ fn create_imposed_page_nup(
                         // 1. Rotate 180 degrees around the center of the slot
                         // 2. The transformation matrix for 180-degree rotation is: [-sx, 0, 0, -sy, tx, ty]
                         // 3. We need to adjust the translation to center the rotated page
-                        let center_x = slot_x + page_slot_width / 2.0;
-                        let center_y = slot_y + page_slot_height / 2.0;
+                        let center_x = slot_x + layout.slot.width / 2.0;
+                        let center_y = slot_y + layout.slot.height / 2.0;
 
                         // For a 180-degree rotation around the center, we translate to center,
                         // rotate, then translate back. This is equivalent to:
@@ -398,10 +406,10 @@ fn create_imposed_page_nup(
                         operations.push(Operation::new(
                             "cm",
                             vec![
-                                (-scale_x).into(),
+                                (-layout.scale.x).into(),
                                 0.into(),
                                 0.into(),
-                                (-scale_y).into(),
+                                (-layout.scale.y).into(),
                                 x_offset.into(),
                                 y_offset.into(),
                             ],
@@ -409,17 +417,17 @@ fn create_imposed_page_nup(
                     } else {
                         // Normal orientation
                         // Center the scaled page within the slot
-                        let x_offset = slot_x + (page_slot_width - scaled_width) / 2.0;
-                        let y_offset = slot_y + (page_slot_height - scaled_height) / 2.0;
+                        let x_offset = slot_x + (layout.slot.width - scaled_width) / 2.0;
+                        let y_offset = slot_y + (layout.slot.height - scaled_height) / 2.0;
 
                         // Apply transformation (scale and translate)
                         operations.push(Operation::new(
                             "cm",
                             vec![
-                                scale_x.into(),
+                                layout.scale.x.into(),
                                 0.into(),
                                 0.into(),
-                                scale_y.into(),
+                                layout.scale.y.into(),
                                 x_offset.into(),
                                 y_offset.into(),
                             ],
@@ -448,39 +456,61 @@ fn create_imposed_page_nup(
         )); // Gray stroke color
 
         // Draw vertical fold lines between columns
-        for col in 1..grid_cols {
-            let x = page_slot_width * col as f32;
+        for col in 1..layout.grid.cols {
+            let col_u32 = u32::try_from(col).unwrap_or(0);
+            #[expect(clippy::cast_precision_loss)]
+            let x = layout.slot.width * (col_u32 as f32);
             operations.push(Operation::new("m", vec![x.into(), 0.into()]));
-            operations.push(Operation::new("l", vec![x.into(), output_height.into()]));
+            operations.push(Operation::new(
+                "l",
+                vec![x.into(), layout.output.height.into()],
+            ));
         }
 
         // Draw horizontal fold lines between rows
-        for row in 1..grid_rows {
-            let y = page_slot_height * row as f32;
+        for row in 1..layout.grid.rows {
+            let row_u32 = u32::try_from(row).unwrap_or(0);
+            #[expect(clippy::cast_precision_loss)]
+            let y = layout.slot.height * (row_u32 as f32);
             operations.push(Operation::new("m", vec![0.into(), y.into()]));
-            operations.push(Operation::new("l", vec![output_width.into(), y.into()]));
+            operations.push(Operation::new(
+                "l",
+                vec![layout.output.width.into(), y.into()],
+            ));
         }
 
         operations.push(Operation::new("S", vec![])); // Stroke all fold lines
 
         // Draw cut lines at edges (solid lines)
         // Top edge
-        operations.push(Operation::new("m", vec![0.into(), output_height.into()]));
+        operations.push(Operation::new(
+            "m",
+            vec![0.into(), layout.output.height.into()],
+        ));
         operations.push(Operation::new(
             "l",
-            vec![output_width.into(), output_height.into()],
+            vec![layout.output.width.into(), layout.output.height.into()],
         ));
         // Bottom edge
         operations.push(Operation::new("m", vec![0.into(), 0.into()]));
-        operations.push(Operation::new("l", vec![output_width.into(), 0.into()]));
-        // Left edge
-        operations.push(Operation::new("m", vec![0.into(), 0.into()]));
-        operations.push(Operation::new("l", vec![0.into(), output_height.into()]));
-        // Right edge
-        operations.push(Operation::new("m", vec![output_width.into(), 0.into()]));
         operations.push(Operation::new(
             "l",
-            vec![output_width.into(), output_height.into()],
+            vec![layout.output.width.into(), 0.into()],
+        ));
+        // Left edge
+        operations.push(Operation::new("m", vec![0.into(), 0.into()]));
+        operations.push(Operation::new(
+            "l",
+            vec![0.into(), layout.output.height.into()],
+        ));
+        // Right edge
+        operations.push(Operation::new(
+            "m",
+            vec![layout.output.width.into(), 0.into()],
+        ));
+        operations.push(Operation::new(
+            "l",
+            vec![layout.output.width.into(), layout.output.height.into()],
         ));
 
         operations.push(Operation::new("S", vec![])); // Stroke the cut lines
@@ -521,33 +551,33 @@ fn create_imposed_page_nup(
         Object::Array(vec![
             0.into(),
             0.into(),
-            output_width.into(),
-            output_height.into(),
+            layout.output.width.into(),
+            layout.output.height.into(),
         ]),
     );
     page_dict.set("Contents", Object::Reference(content_id));
     page_dict.set("Resources", Object::Dictionary(resources));
 
-    let page_id = output_doc.add_object(page_dict);
+    let sheet_page_id = output_doc.add_object(page_dict);
 
-    Ok(page_id)
+    Ok(sheet_page_id)
 }
 
-/// Create a Form XObject from a source page
+/// Create a Form `XObject` from a source page
 fn create_form_xobject(
-    output_doc: &mut lopdf::Document,
-    source_doc: &lopdf::Document,
-    source_page_id: lopdf::ObjectId,
+    output_doc: &mut Document,
+    source_doc: &Document,
+    source_page_id: ObjectId,
     width: f32,
     height: f32,
-    cache: &mut std::collections::HashMap<lopdf::ObjectId, lopdf::ObjectId>,
-) -> Result<lopdf::ObjectId> {
+    cache: &mut std::collections::HashMap<ObjectId, ObjectId>,
+) -> Result<ObjectId> {
     use lopdf::{Dictionary, Object, Stream};
 
     // Get the source page
     let page_obj = source_doc
         .get_object(source_page_id)
-        .map_err(|e| BookletError::ParseError(format!("Failed to get source page: {}", e)))?;
+        .map_err(|e| BookletError::ParseError(format!("Failed to get source page: {e}")))?;
 
     let page_dict = page_obj
         .as_dict()
@@ -562,14 +592,14 @@ fn create_form_xobject(
     let content_data = match contents {
         Object::Reference(ref_id) => {
             let content_obj = source_doc.get_object(*ref_id).map_err(|e| {
-                BookletError::ParseError(format!("Failed to get content object: {}", e))
+                BookletError::ParseError(format!("Failed to get content object: {e}"))
             })?;
 
             match content_obj {
                 Object::Stream(stream) => {
                     // Decompress the stream to get the actual content
                     stream.decompressed_content().map_err(|e| {
-                        BookletError::ParseError(format!("Failed to decompress content: {}", e))
+                        BookletError::ParseError(format!("Failed to decompress content: {e}"))
                     })?
                 }
                 _ => {
@@ -626,11 +656,11 @@ fn create_form_xobject(
 /// Deep copy an object and all its references from source to destination document
 /// Uses a cache to avoid duplicating objects
 fn copy_object_deep(
-    source_doc: &lopdf::Document,
-    dest_doc: &mut lopdf::Document,
-    obj: &lopdf::Object,
-    cache: &mut std::collections::HashMap<lopdf::ObjectId, lopdf::ObjectId>,
-) -> Result<lopdf::Object> {
+    source_doc: &Document,
+    dest_doc: &mut Document,
+    obj: &Object,
+    cache: &mut std::collections::HashMap<ObjectId, ObjectId>,
+) -> Result<Object> {
     use lopdf::{Dictionary, Object};
 
     match obj {
@@ -646,7 +676,7 @@ fn copy_object_deep(
                 let copied = copy_object_deep(source_doc, dest_doc, referenced_obj, cache)?;
                 // Add to destination and return reference
                 let new_id = dest_doc.add_object(copied);
-                cache.insert(*ref_id, new_id);
+                let _ = cache.insert(*ref_id, new_id);
                 Ok(Object::Reference(new_id))
             } else {
                 Ok(Object::Null)

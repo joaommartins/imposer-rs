@@ -6,12 +6,18 @@ pub fn calculate_saddle_stitch_grid(pages_per_sheet: usize) -> (usize, usize) {
     }
 
     // Find the factor closest to sqrt(n) to get the most square grid
-    let sqrt = (pages_per_sheet as f64).sqrt();
-    let sqrt_floor = sqrt.floor() as usize;
+    // Note: usize to f64 precision loss is acceptable for grid calculations
+    // since page grid sizes are always reasonable (≤ 1024 in practice)
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
+    let sqrt = (pages_per_sheet as f64).sqrt().floor() as usize;
 
     // Try factors starting from sqrt going down
-    for r in (1..=sqrt_floor).rev() {
-        if pages_per_sheet % r == 0 {
+    for r in (1..=sqrt).rev() {
+        if pages_per_sheet.is_multiple_of(r) {
             let cols = pages_per_sheet / r;
             return (r, cols);
         }

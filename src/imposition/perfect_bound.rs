@@ -1,7 +1,19 @@
 /// Calculate page ordering for perfect bound booklets
+///
+/// **⚠️ WARNING: This module is a Work In Progress (WIP) and not ready for production use!**
+///
 /// Pages are arranged for work-and-turn or work-and-tumble printing
 /// For 2-up: simple layout with [1,4] front, [3,2] back
 /// For 4-up: head-to-head layout with top row upside down
+///
+/// # Note
+///
+/// This implementation is experimental and has not been fully tested or verified.
+/// Do not use for production booklet generation. Use saddle stitch binding instead.
+#[deprecated(
+    since = "0.1.0",
+    note = "Perfect binding is work in progress and not yet ready for use"
+)]
 pub fn calculate_perfect_bound_order(num_pages: usize, pages_per_sheet: usize) -> Vec<Vec<usize>> {
     if pages_per_sheet == 0 {
         return Vec::new();
@@ -9,21 +21,20 @@ pub fn calculate_perfect_bound_order(num_pages: usize, pages_per_sheet: usize) -
 
     if pages_per_sheet == 2 {
         // 2-up: simple short-edge duplex layout
-        return calculate_perfect_bound_2up(num_pages);
+        calculate_perfect_bound_2up(num_pages)
     } else if pages_per_sheet == 4 {
         // 4-up: head-to-head layout (top row upside down)
-        return calculate_perfect_bound_4up(num_pages);
+        calculate_perfect_bound_4up(num_pages)
     } else {
         // For other n-up, use simple sequential layout
-        return calculate_perfect_bound_simple(num_pages, pages_per_sheet);
+        calculate_perfect_bound_simple(num_pages, pages_per_sheet)
     }
 }
 
 /// 2-up perfect binding: [1,4] front, [3,2] back
 fn calculate_perfect_bound_2up(num_pages: usize) -> Vec<Vec<usize>> {
     let pages_per_physical_sheet = 4;
-    let total_pages = ((num_pages + pages_per_physical_sheet - 1) / pages_per_physical_sheet)
-        * pages_per_physical_sheet;
+    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
 
     let mut ordering = Vec::new();
     let num_sheets = total_pages / pages_per_physical_sheet;
@@ -49,7 +60,7 @@ fn calculate_perfect_bound_2up(num_pages: usize) -> Vec<Vec<usize>> {
             } else {
                 0
             },
-            if base_page + 1 <= num_pages {
+            if base_page < num_pages {
                 base_page + 1
             } else {
                 0
@@ -66,8 +77,7 @@ fn calculate_perfect_bound_2up(num_pages: usize) -> Vec<Vec<usize>> {
 /// Back: [3, 6(upside down), 2, 7] -> grid: top row [3,6], bottom row [2,7]
 fn calculate_perfect_bound_4up(num_pages: usize) -> Vec<Vec<usize>> {
     let pages_per_physical_sheet = 8;
-    let total_pages = ((num_pages + pages_per_physical_sheet - 1) / pages_per_physical_sheet)
-        * pages_per_physical_sheet;
+    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
 
     let mut ordering = Vec::new();
     let num_sheets = total_pages / pages_per_physical_sheet;
@@ -80,7 +90,7 @@ fn calculate_perfect_bound_4up(num_pages: usize) -> Vec<Vec<usize>> {
             if base + 5 <= num_pages { base + 5 } else { 0 },
             if base + 4 <= num_pages { base + 4 } else { 0 },
             if base + 8 <= num_pages { base + 8 } else { 0 },
-            if base + 1 <= num_pages { base + 1 } else { 0 },
+            if base < num_pages { base + 1 } else { 0 },
         ];
         ordering.push(front_pages);
 
@@ -100,8 +110,7 @@ fn calculate_perfect_bound_4up(num_pages: usize) -> Vec<Vec<usize>> {
 /// Simple sequential layout for other n-up configurations
 fn calculate_perfect_bound_simple(num_pages: usize, pages_per_sheet: usize) -> Vec<Vec<usize>> {
     let pages_per_physical_sheet = pages_per_sheet * 2;
-    let total_pages = ((num_pages + pages_per_physical_sheet - 1) / pages_per_physical_sheet)
-        * pages_per_physical_sheet;
+    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
 
     let mut ordering = Vec::new();
     let num_sheets = total_pages / pages_per_physical_sheet;
@@ -144,6 +153,7 @@ fn calculate_perfect_bound_simple(num_pages: usize, pages_per_sheet: usize) -> V
 }
 
 #[cfg(test)]
+#[expect(deprecated)]
 mod tests {
     use super::*;
 

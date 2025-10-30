@@ -1,7 +1,8 @@
 /// Standard paper sizes for booklet output
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum PageSize {
     /// A4 paper (210 × 297 mm) - Default
+    #[default]
     A4,
     /// A3 paper (297 × 420 mm)
     A3,
@@ -19,6 +20,7 @@ pub enum PageSize {
 
 impl PageSize {
     /// Get the dimensions in points (width, height)
+    #[must_use]
     pub fn dimensions(&self) -> (f32, f32) {
         match self {
             // DIN A series (in points, 1mm = 2.83465 points)
@@ -34,30 +36,39 @@ impl PageSize {
     }
 
     /// Parse a page size from a string
+    ///
+    /// # Note
+    /// This method is provided for backwards compatibility.
+    /// Use the `FromStr` trait implementation instead: `page_size_str.parse()?`
+    #[must_use]
+    #[expect(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
+        s.parse().ok()
+    }
+}
+
+impl std::str::FromStr for PageSize {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "a4" => Some(PageSize::A4),
-            "a3" => Some(PageSize::A3),
-            "a5" => Some(PageSize::A5),
-            "letter" => Some(PageSize::Letter),
-            "legal" => Some(PageSize::Legal),
-            "tabloid" => Some(PageSize::Tabloid),
-            _ => None,
+            "a4" => Ok(PageSize::A4),
+            "a3" => Ok(PageSize::A3),
+            "a5" => Ok(PageSize::A5),
+            "letter" => Ok(PageSize::Letter),
+            "legal" => Ok(PageSize::Legal),
+            "tabloid" => Ok(PageSize::Tabloid),
+            _ => Err(()),
         }
     }
 }
 
-impl Default for PageSize {
-    fn default() -> Self {
-        PageSize::A4
-    }
-}
-
 /// Binding type for booklet imposition
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum BindingType {
     /// Saddle stitch binding (sheets folded in half and stapled in the middle)
     /// Uses alternating page order for proper reading sequence
+    #[default]
     SaddleStitch,
     /// Perfect binding (pages glued at the spine)
     /// Uses sequential page order in signatures
@@ -68,7 +79,7 @@ pub enum BindingType {
 /// Returns true only for 2, 4, 8, 16, 32, ... (powers of 2)
 #[inline]
 fn is_power_of_two(n: usize) -> bool {
-    n > 0 && (n & (n - 1)) == 0
+    n > 0 && n.is_power_of_two()
 }
 
 /// Valid pages per sheet for saddle stitch binding
@@ -109,6 +120,7 @@ impl SaddleStitchPages {
     ///
     /// Accepts any power of 2 ≥ 2, not just the predefined enum variants.
     /// This allows unlimited page-per-sheet values (128, 256, 512, 1024, ...).
+    #[must_use]
     pub fn from_usize(value: usize) -> Option<Self> {
         // Accept any power of 2 >= 2
         if !is_power_of_two(value) || value < 2 {
@@ -131,22 +143,25 @@ impl SaddleStitchPages {
     }
 
     /// Get common predefined values for display in help text
+    #[must_use]
     pub fn common_values() -> &'static [usize] {
         &[2, 4, 8, 16, 32, 64]
     }
 
     /// Get a description of valid values (any power of 2)
+    #[must_use]
     pub fn valid_values_description() -> &'static str {
         "any power of 2 (2, 4, 8, 16, 32, 64, 128, 256, ...)"
     }
 
     /// Get a formatted string showing common values and the pattern
+    #[must_use]
     pub fn valid_values_string() -> String {
         format!(
             "{} (or any power of 2: 128, 256, 512, 1024, ...)",
             Self::common_values()
                 .iter()
-                .map(|v| v.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(", ")
         )
@@ -266,14 +281,9 @@ mod tests {
     }
 }
 
-impl Default for BindingType {
-    fn default() -> Self {
-        BindingType::SaddleStitch
-    }
-}
-
 /// Configuration options for booklet generation
 #[derive(Debug, Clone)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct BookletConfig {
     /// Output page size for the booklet
     pub page_size: PageSize,
@@ -312,6 +322,7 @@ impl Default for BookletConfig {
 
 impl BookletConfig {
     /// Create a new configuration with the specified page size
+    #[must_use]
     pub fn new(page_size: PageSize) -> Self {
         Self {
             page_size,
@@ -325,38 +336,150 @@ impl BookletConfig {
     }
 
     /// Set whether to scale pages to fit
+    #[must_use]
     pub fn with_scale_to_fit(mut self, scale: bool) -> Self {
         self.scale_to_fit = scale;
         self
     }
 
     /// Set whether to preserve aspect ratio when scaling
+    #[must_use]
     pub fn with_preserve_aspect_ratio(mut self, preserve: bool) -> Self {
         self.preserve_aspect_ratio = preserve;
         self
     }
 
     /// Set the number of pages per sheet side (e.g., 2 for 2-up, 3 for 3-up)
+    #[must_use]
     pub fn with_pages_per_sheet(mut self, pages: usize) -> Self {
         self.pages_per_sheet = pages;
         self
     }
 
     /// Set whether to draw fold and cut guide lines
+    #[must_use]
     pub fn with_draw_guides(mut self, draw: bool) -> Self {
         self.draw_guides = draw;
         self
     }
 
     /// Set whether to show page numbers instead of content
+    #[must_use]
     pub fn with_number_pages(mut self, number: bool) -> Self {
         self.number_pages = number;
         self
     }
 
     /// Set the binding type (saddle stitch or perfect bound)
+    #[must_use]
     pub fn with_binding_type(mut self, binding_type: BindingType) -> Self {
         self.binding_type = binding_type;
         self
+    }
+}
+
+/// Grid layout dimensions (rows × columns)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GridLayout {
+    /// Number of rows in the grid
+    pub rows: usize,
+    /// Number of columns in the grid
+    pub cols: usize,
+}
+
+impl GridLayout {
+    /// Create a new grid layout
+    #[must_use]
+    pub fn new(rows: usize, cols: usize) -> Self {
+        Self { rows, cols }
+    }
+}
+
+/// 2D dimensions (typically width × height)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Dimensions {
+    /// Width
+    pub width: f32,
+    /// Height
+    pub height: f32,
+}
+
+impl Dimensions {
+    /// Create new dimensions
+    #[must_use]
+    pub fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+}
+
+/// 2D scaling factors
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Scale {
+    /// Horizontal scaling factor
+    pub x: f32,
+    /// Vertical scaling factor
+    pub y: f32,
+}
+
+impl Scale {
+    /// Create new scale factors
+    #[must_use]
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+/// Layout parameters for imposing pages: grid, dimensions, and scaling
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ImpositionLayout {
+    /// Grid layout (rows × columns)
+    pub grid: GridLayout,
+    /// Dimensions of each page slot on the output page
+    pub slot: Dimensions,
+    /// Output page dimensions
+    pub output: Dimensions,
+    /// Source page dimensions
+    pub source: Dimensions,
+    /// Scaling factors
+    pub scale: Scale,
+}
+
+impl ImpositionLayout {
+    /// Create new imposition layout parameters
+    #[must_use]
+    pub fn new(
+        grid: GridLayout,
+        slot: Dimensions,
+        output: Dimensions,
+        source: Dimensions,
+        scale: Scale,
+    ) -> Self {
+        Self {
+            grid,
+            slot,
+            output,
+            source,
+            scale,
+        }
+    }
+}
+
+/// Pages to impose on a single sheet
+#[derive(Debug, Clone, Copy)]
+pub struct SheetPages<'a> {
+    /// All pages from the source document with their object IDs
+    pub all_pages: &'a [(u32, lopdf::ObjectId)],
+    /// Page numbers to place on this sheet (1-indexed, 0 = blank page)
+    pub page_nums: &'a [usize],
+}
+
+impl<'a> SheetPages<'a> {
+    /// Create a new sheet pages reference
+    #[must_use]
+    pub fn new(all_pages: &'a [(u32, lopdf::ObjectId)], page_nums: &'a [usize]) -> Self {
+        Self {
+            all_pages,
+            page_nums,
+        }
     }
 }

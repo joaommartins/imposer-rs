@@ -20,7 +20,8 @@
 
 mod config;
 mod error;
-mod imposition;
+/// Page ordering and booklet imposition algorithms
+pub mod imposition;
 mod pdf;
 
 // Re-export public API

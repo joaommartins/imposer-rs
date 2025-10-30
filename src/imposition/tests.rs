@@ -76,23 +76,28 @@ mod tests {
     }
 
     #[rstest]
-    #[case(1, 2)]      // 1 page, 2-up
-    #[case(5, 2)]      // 5 pages, 2-up
-    #[case(9, 2)]      // 9 pages, 2-up
-    #[case(109, 2)]    // 109 pages, 2-up
-    #[case(7, 4)]      // 7 pages, 4-up
-    #[case(15, 4)]     // 15 pages, 4-up
-    #[case(111, 8)]    // 111 pages, 8-up
-    fn test_no_duplicate_pages_with_odd_input(#[case] num_pages: usize, #[case] pages_per_sheet: usize) {
+    #[case(1, 2)] // 1 page, 2-up
+    #[case(5, 2)] // 5 pages, 2-up
+    #[case(9, 2)] // 9 pages, 2-up
+    #[case(109, 2)] // 109 pages, 2-up
+    #[case(7, 4)] // 7 pages, 4-up
+    #[case(15, 4)] // 15 pages, 4-up
+    #[case(111, 8)] // 111 pages, 8-up
+    fn test_no_duplicate_pages_with_odd_input(
+        #[case] num_pages: usize,
+        #[case] pages_per_sheet: usize,
+    ) {
         let ordering = calculate_page_order(num_pages, pages_per_sheet, BindingType::SaddleStitch);
         let flattened: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
 
         // Check that no page (except blank 0) appears more than once
         for page in 1..=num_pages {
             let count = flattened.iter().filter(|&&p| p == page).count();
-            assert_eq!(count, 1, 
+            assert_eq!(
+                count, 1,
                 "With {} pages and {}-up: Page {} appears {} times (should be 1)",
-                num_pages, pages_per_sheet, page, count);
+                num_pages, pages_per_sheet, page, count
+            );
         }
     }
 }

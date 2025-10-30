@@ -6,6 +6,7 @@ mod perfect_bound;
 mod saddle_stitch;
 
 // Re-export for internal use
+#[expect(deprecated)]
 use perfect_bound::calculate_perfect_bound_order;
 use saddle_stitch::calculate_saddle_stitch_order;
 
@@ -37,6 +38,7 @@ pub fn calculate_page_order(
 ) -> Vec<Vec<usize>> {
     match binding_type {
         BindingType::SaddleStitch => calculate_saddle_stitch_order(num_pages, pages_per_sheet),
+        #[expect(deprecated)]
         BindingType::PerfectBound => calculate_perfect_bound_order(num_pages, pages_per_sheet),
     }
 }

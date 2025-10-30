@@ -49,6 +49,7 @@ Best practices for code edits
 - Use serena for exploration only: Use serena tools to find symbols and understand code structure, but use `replace_string_in_file` or `create_file` for actual edits.
 - When renaming or changing public symbols, run `mcp_serena_find_referencing_symbols` to find all call-sites that need updating.
 - Add small, focused tests for any new public behavior. Use the project's test harness (e.g., `mcp_cargo-mcp_cargo_test`).
+- **Struct imports convention**: When referring to crate structs, always import them at the top of the module using `use crate::module::StructName;` and then refer to them by their name directly (e.g., `StructName::new()`, `BindingType::PerfectBound`). Do NOT use fully qualified paths like `crate::config::StructName` in the code body. This keeps code clean and idiomatic.
 
 Example workflow for a code change
 

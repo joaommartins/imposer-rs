@@ -1,3 +1,8 @@
+//! PDF booklet imposition tool
+//!
+//! This tool takes a PDF file and arranges its pages into a booklet format,
+//! allowing for various configuration options such as page size, binding type,
+//! and scaling behaviour.
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
@@ -8,6 +13,7 @@ use imposer::{BindingType, BookletConfig, PageSize, SaddleStitchPages};
 /// Simple PDF booklet imposition tool
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+#[expect(clippy::struct_excessive_bools)]
 struct Args {
     /// Input PDF path
     #[arg(short, long)]
@@ -43,6 +49,7 @@ struct Args {
     number_pages: bool,
 
     /// Use perfect binding instead of saddle stitch (sequential page order)
+    /// **WARNING: This feature is work in progress and not yet ready for use!**
     #[arg(long)]
     perfect_binding: bool,
 }
@@ -51,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let mut f = File::open(&args.input)?;
     let mut buf = Vec::new();
-    f.read_to_end(&mut buf)?;
+    let _ = f.read_to_end(&mut buf)?;
 
     let page_size = PageSize::from_str(&args.page_size)
         .ok_or_else(|| format!("Invalid page size: {}", args.page_size))?;
@@ -62,16 +69,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         BindingType::SaddleStitch
     };
 
+    // Perfect binding is still work in progress - reject attempts to use it
+    if binding_type == BindingType::PerfectBound {
+        return Err(
+            "Perfect binding is currently a work in progress and not ready for use. \
+             Please use saddle stitch binding instead (the default)."
+                .into(),
+        );
+    }
+
     // Validate pages_per_sheet for saddle stitch binding
-    if binding_type == BindingType::SaddleStitch {
-        if SaddleStitchPages::from_usize(args.pages_per_sheet).is_none() {
-            return Err(format!(
-                "Invalid pages per sheet: {}. For saddle stitch binding, must be one of: {}",
-                args.pages_per_sheet,
-                SaddleStitchPages::valid_values_string()
-            )
-            .into());
-        }
+    if binding_type == BindingType::SaddleStitch
+        && SaddleStitchPages::from_usize(args.pages_per_sheet).is_none()
+    {
+        return Err(format!(
+            "Invalid pages per sheet: {}. For saddle stitch binding, must be one of: {}",
+            args.pages_per_sheet,
+            SaddleStitchPages::valid_values_string()
+        )
+        .into());
     }
 
     let config = BookletConfig::new(page_size)
