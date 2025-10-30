@@ -3,7 +3,8 @@ use crate::config::BindingType;
 // Module declarations
 mod grid;
 mod perfect_bound;
-mod saddle_stitch;
+/// Saddle stitch imposition algorithm and helpers.
+pub mod saddle_stitch;
 
 // Re-export for internal use
 #[expect(deprecated)]

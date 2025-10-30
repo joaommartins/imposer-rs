@@ -24,28 +24,29 @@ mod tests {
 
     #[test]
     fn test_page_ordering_5_pages_2up() {
-        // Should pad to 6 pages (even number)
-        // With deduplication of duplicate back pages: 5 pages (padded to 6) = 3 output pages
+        // 5 pages requires 3 sides min, rounded to 4 sides (even) = 8 page slots
+        // 3 blanks: 3/4=0, use saddle-stitch nesting
         let ordering = calculate_page_order(5, 2, BindingType::SaddleStitch);
-        // 6 pages: sheets_per_section = (6 + 3) / 4 = 2, but last back is duplicate so: 3 entries
-        assert_eq!(ordering.len(), 3);
+        assert_eq!(ordering.len(), 4); // 4 sides (2 sheets)
+        assert_eq!(ordering[0], vec![0, 1]);
+        assert_eq!(ordering[1], vec![2, 0]);
+        assert_eq!(ordering[2], vec![0, 3]);
+        assert_eq!(ordering[3], vec![4, 5]);
     }
 
     #[test]
     fn test_page_ordering_1_page_2up() {
-        // Should pad to 2 pages (even number)
-        // With deduplication: front and back would be identical, so only front is output
+        // 1 page padded to 2 = 1 pair on front, back is blank
         let ordering = calculate_page_order(1, 2, BindingType::SaddleStitch);
-        // 2 pages: sheets_per_section = (2 + 3) / 4 = 1, last back is duplicate so: 1 entry
-        assert_eq!(ordering.len(), 1);
-        assert_eq!(ordering[0].len(), 2); // 2 pages per side
+        assert_eq!(ordering.len(), 2); // Front and back
+        assert_eq!(ordering[0], vec![0, 1]);
+        assert_eq!(ordering[1], vec![0, 0]);
     }
 
     #[test]
     fn test_page_ordering_8_pages_4up() {
         let ordering = calculate_page_order(8, 4, BindingType::SaddleStitch);
-        // For 4-up (2×2 grid), single sheet:
-        // Front: [8, 1, 6, 3], Back: [2, 7, 4, 5] (no pair reversal, n ≤ 4)
+        // 4-up zigzag: pairs 0,2 on front; pairs 1,3 on back (left-to-right)
         assert_eq!(ordering, vec![vec![8, 1, 6, 3], vec![2, 7, 4, 5]]);
     }
 
