@@ -1,41 +1,47 @@
 use crate::imposition::grid::calculate_saddle_stitch_grid;
 
-/// Calculate page ordering for saddle stitch booklets (n-up, n ≥ 2)
+/// Calculate page ordering for saddle stitch booklets (n-up, n ≥ 2).
 ///
-/// Arranges pages in a saddle stitch pattern where the outermost pages form the covers
-/// and pages nest inward to create the booklet structure when cut and folded.
+/// This implementation produces a traditional saddle-stitch nesting while adding
+/// a couple of practical optimisations for blank-padding and small inputs.
 ///
-/// # Grid Layout
-/// Pages are arranged in a grid determined by `pages_per_sheet`:
-/// - 2-up: 1×2 (landscape)
-/// - 4-up: 2×2 (portrait)
-/// - 8-up: 2×4 (landscape)
-/// - 16-up: 4×4 (portrait)
-/// The grid layout prefers square arrangements where possible.
+/// High-level algorithm summary:
+/// - Ensure an EVEN number of sides (front/back pairs). The input page count is
+///   padded to the next multiple of `pages_per_sheet`, then the number of sides
+///   (pages / pages_per_sheet) is rounded up to an even value.
+/// - Compute `initial_adjusted = total_sides * pages_per_sheet` and the number of
+///   blank pages required = `initial_adjusted - num_pages`.
+/// - Remove any "complete blank pairs" (groups of 4 blank pages) from the
+///   placement calculation. Each complete blank pair (4 pages) can be kept
+///   together at the end of the output and does not change the internal
+///   saddle-stitch nesting; we therefore reduce the working page count by
+///   multiples of 4. The remaining (0–3) blanks are handled by the nesting so
+///   they pair with the low-numbered pages as usual.
+/// - Generate traditional outer-to-inner saddle-stitch pairs over the
+///   adjusted page count: pair i (0-based) is `(adjusted - i, i+1)` when i is
+///   even, and `(i+1, adjusted - i)` when i is odd. Pages greater than
+///   `num_pages` are rendered as blanks (0).
+/// - Place pairs into the n-up grid row-by-row. Pairs are consumed in sequence
+///   and alternately assigned to front and back slots within each row, creating
+///   the horizontal zigzag pattern (front left-to-right, back right-to-left).
+/// - For layouts larger than 4-up (i.e. `pages_per_sheet > 4`, typically 8-up
+///   and above), the back-side row ordering is reversed in certain grid shapes
+///   to account for duplex flipping; for 4-up and smaller, the back rows are
+///   placed without row reversal.
+/// - If a sheet's front and back pages are identical (which can happen for
+///   very small inputs), the back side is not emitted (deduplication). The
+///   function guarantees that every non-zero page number appears exactly once.
 ///
-/// # Placement Algorithm
-/// Pairs are placed using a horizontal zigzag pattern:
-/// 1. Start at top-left of front sheet, place first pair
-/// 2. Move to top-right of back sheet, place second pair
-/// 3. Move right on front sheet, place third pair
-/// 4. Move left on back sheet, place fourth pair
-/// 5. Continue alternating horizontally until row is full
-/// 6. Move to next row and repeat
+/// Implementation notes and invariants:
+/// - The function returns a Vec of sides; each side is a Vec<usize> with
+///   exactly `pages_per_sheet` slots. Zero denotes a blank/padding slot.
+/// - The algorithm avoids creating duplicate non-blank pages; any page > 0
+///   appears at most once in the returned structure.
+/// - The pairing strategy uses a reduced `adjusted_num_pages` after removing
+///   complete blank pairs. This preserves traditional saddle-stitch nesting
+///   while grouping full blank pairs at the end of the output.
 ///
-/// This creates an alternating front/back placement that fills horizontally
-/// before moving vertically, with front progressing left-to-right and back
-/// progressing right-to-left within each row.
-///
-/// # Blank Pages
-/// Blank pages (represented as 0) are added to the end of the document to pad
-/// the total page count to a multiple of `pages_per_sheet`.
-///
-/// # Duplex Handling
-/// For left-edge duplex printing:
-/// - 2-up: short-edge flip (landscape 1×2 grid, left edge is short)
-/// - 4-up: long-edge flip (portrait 2×2 grid, left edge is long)
-/// - 8-up and higher (n > 4): short-edge flip (left edge is short, pairs reversed on back)
-///   * Within each row, pairs are already placed right-to-left on back
+/// Example (4-up, 5 pages): produces front `[0,1,0,3]` and back `[2,0,4,5]`.
 pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -> Vec<Vec<usize>> {
     if pages_per_sheet == 0 {
         return Vec::new();
@@ -50,7 +56,7 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
         min_sides + 1
     };
 
-    // Calculate blank optimization: complete blank pairs can be removed from placement
+    // Calculate blank optimisation: complete blank pairs can be removed from placement
     let initial_adjusted = total_sides * pages_per_sheet;
     let num_blanks = initial_adjusted - num_pages;
     let complete_blank_pairs = num_blanks / 4;
