@@ -383,6 +383,7 @@ fn test_sheets_per_section_calculation() {
 /// Sheet Pair 1:
 ///   - Front: [8, 1]  (pair 1: pages 1,8)
 ///   - Back:  [2, 7]  (pair 2: pages 2,7)
+///
 /// Sheet Pair 2:
 ///   - Front: [6, 3]  (pair 3: pages 3,6)
 ///   - Back:  [4, 5]  (pair 4: pages 4,5)
@@ -828,12 +829,6 @@ fn golden_16up_109_pages_padding_and_grouping() {
         blank_count, expected_blanks,
         "Expected {expected_blanks} blank slots, found {blank_count}"
     );
-
-    // The algorithm removes complete blank pairs (groups of 4) from the
-    // placement calculation conceptually; we do not assert a strict
-    // contiguous tail in the flattened output because zigzag placement can
-    // interleave blanks with remaining pairs. Compute for documentation only.
-    let _complete_blank_pairs = expected_blanks / 4; // integer division
 
     // Ensure every original page appears exactly once
     for page in 1..=num_pages {
