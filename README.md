@@ -1,12 +1,12 @@
 # imposer
 
-A Rust library and CLI for imposing single-sheet PDFs into booklet layouts with configurable n-up binding.
+A small, focused Rust library and CLI for arranging PDF pages into booklet layouts (n-up) with common binding options.
 
 ## Features
 
 - **Library API**: Call `imposer::generate_booklet` with PDF bytes and configuration to get back imposed PDF bytes
 - **CLI**: `imposer --input in.pdf --output booklet.pdf [--pages-per-sheet N] [--binding-type TYPE]`
-- **Flexible n-up Saddle Stitch Imposition**: Support for any power of 2 pages per sheet (2-up, 4-up, 8-up, 16-up, 32-up, 64-up, 128-up, 256-up, 512-up, 1024-up, ...)
+- **Flexible n-up Saddle Stitch Imposition**: Support for power-of-two pages-per-sheet (2-up, 4-up, 8-up, 16-up, 32-up, ...). Choose the n-up value that fits your printer and folding strategy.
 - **Multiple Binding Types**:
   - **Saddle Stitch** (nested): Traditional booklet binding with pages arranged in nested signatures
   - **Perfect Binding** (sequential): Book binding where pages are stacked sequentially (WIP)
@@ -23,16 +23,30 @@ The saddle stitch imposition algorithm correctly:
 - Handles arbitrary power-of-2 n-up values
 - Verified with 64-up imposition on 109-page test (all pages present, no duplicates)
 
+### Saddle-stitch padding & placement (short)
+
+- Even number of sides: the algorithm rounds the number of physical "sides" (front/back) up to an even value when needed so that sheets are whole and can be saddle-stitched.
+- Grouped blank pairs: when possible the implementation removes whole groups of four padding pages (complete blank pairs) from the internal nesting calculation and keeps them together at the end of the output. That keeps the nesting traditional (outer→inner) while grouping entirely-blank sheets.
+- Remainder padding (0–3 pages) is left to the nesting algorithm and will pair with low-numbered pages as in classic saddle-stitch layouts.
+- Row reversal: for small layouts (4-up and lower) the back rows are placed without reversal; for larger n-up (8-up and up) specific grid shapes may require reversing the back-row ordering to match duplex flipping.
+
+For more detail and examples, see `src/imposition/saddle_stitch.rs` and the `Notes on saddle-stitch padding and placement` section in this file.
+
 ## Notes and Capabilities
 
 - Assumes reasonably uniform page sizes across input PDF
 - Pads output with blank pages for proper sheet divisibility
 - Modularized imposition module with separate algorithms for each binding type
 
+
 Building
 
-    cargo build --release
+```bash
+cargo build --release
+```
 
-Running
+Try it
 
-    cargo run --bin imposer -- -i input.pdf -o booklet.pdf
+```bash
+cargo run --bin imposer -- -i input.pdf -o booklet.pdf
+```

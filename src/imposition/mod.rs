@@ -32,6 +32,7 @@ use saddle_stitch::calculate_saddle_stitch_order;
 /// For a 4-page document with 2-up perfect bound layout:
 /// - Sheet 1 front: [1, 2]
 /// - Sheet 1 back: [3, 4]
+#[must_use]
 pub fn calculate_page_order(
     num_pages: usize,
     pages_per_sheet: usize,
@@ -45,4 +46,4 @@ pub fn calculate_page_order(
 }
 
 #[cfg(test)]
-mod tests;
+mod test_imposition;

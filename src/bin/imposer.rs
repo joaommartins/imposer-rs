@@ -3,6 +3,17 @@
 //! This tool takes a PDF file and arranges its pages into a booklet format,
 //! allowing for various configuration options such as page size, binding type,
 //! and scaling behaviour.
+//!
+//! Note on saddle-stitch behavior:
+//! - The CLI uses the library's saddle-stitch implementation which may pad the
+//!   document with blank pages so the output is divisible into whole sheets.
+//! - When possible, whole 4-page blank groups are kept together (entirely
+//!   blank sheets are grouped at the end). Any remaining 0–3 padding pages are
+//!   nested in the classical outer→inner saddle-stitch order and will therefore
+//!   pair with low-numbered pages.
+//! - Small layouts (4-up and smaller) avoid certain back-row reversals that are
+//!   applied for larger n-up grid shapes (8-up and above). See README.md and
+//!   `src/imposition/saddle_stitch.rs` for details and examples.
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
