@@ -50,3 +50,39 @@ Try it
 ```bash
 cargo run --bin imposer -- -i input.pdf -o booklet.pdf
 ```
+
+Using the binary (when Cargo bin is in your PATH)
+
+If you prefer to run `imposer` directly from your shell without `cargo run`, install the binary into your Cargo bin directory (usually `~/.cargo/bin`) and make sure that directory is on your PATH.
+
+- Install locally from the repository (installs into `~/.cargo/bin`):
+
+```bash
+cargo install --path .
+```
+
+- Or install the published crate from crates.io:
+
+```bash
+cargo install imposer
+```
+
+- Ensure `~/.cargo/bin` is on your PATH (add to your shell profile if necessary):
+
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+# Add the line above to ~/.bashrc, ~/.zshrc, or your shell profile to make it persistent
+```
+
+- Run the installed binary directly:
+
+```bash
+imposer -i input.pdf -o booklet.pdf --pages-per-sheet 4
+```
+
+- Alternatively, run the release build directly from the project without installing:
+
+```bash
+cargo build --release
+./target/release/imposer -i input.pdf -o booklet.pdf
+```
