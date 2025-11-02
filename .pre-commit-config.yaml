@@ -18,6 +18,7 @@ repos:
           "--allow-dirty",
           "--allow-staged",
           "--allow-no-vcs",
+          "--", "-D warnings",
         ]
 - repo: local
   hooks:

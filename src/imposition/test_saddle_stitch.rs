@@ -149,7 +149,7 @@ fn test_saddle_stitch_4up_12_pages() {
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=12 {
         let count = flat.iter().filter(|&&p| p == page).count();
-        assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        assert_eq!(count, 1, "Page {page} should appear exactly once");
     }
     let blank_count = flat.iter().filter(|&&p| p == 0).count();
     assert_eq!(
@@ -189,7 +189,7 @@ fn test_saddle_stitch_2up_odd_pages() {
     // All original pages should be in the output
     for page in 1..=109 {
         let count = flattened.iter().filter(|&&p| p == page).count();
-        assert!(count > 0, "Page {} should be in the output", page);
+        assert!(count > 0, "Page {page} should be in the output");
     }
 
     // No page should appear more than once (except blank page 0)
@@ -197,8 +197,7 @@ fn test_saddle_stitch_2up_odd_pages() {
         let count = flattened.iter().filter(|&&p| p == page).count();
         assert_eq!(
             count, 1,
-            "Page {} should appear exactly once, but appears {} times",
-            page, count
+            "Page {page} should appear exactly once, but appears {count} times"
         );
     }
 }
@@ -289,7 +288,7 @@ fn test_blank_page_handling() {
 
     for page in 1..=3 {
         let count = flattened.iter().filter(|&&p| p == page).count();
-        assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        assert_eq!(count, 1, "Page {page} should appear exactly once");
     }
 }
 
@@ -343,7 +342,7 @@ fn test_bounds_checking() {
 
     // No page number should exceed 7 (except 0 for blanks)
     for &page in &flattened {
-        assert!(page <= 7, "Page {} exceeds num_pages (7)", page);
+        assert!(page <= 7, "Page {page} exceeds num_pages (7)");
     }
 
     // Should have exactly 1 blank (8 total slots - 7 pages)
@@ -476,8 +475,8 @@ fn test_placement_4up_expectations() {
 /// 7. Front row 1, col 2: Pair 7
 /// 8. Back row 1, col 2:  Pair 8
 ///
-/// Front: [p1_l, p1_r, p3_l, p3_r, p5_l, p5_r, p7_l, p7_r]
-/// Back:  [p2_l, p2_r, p4_l, p4_r, p6_l, p6_r, p8_l, p8_r] with pairs reversed per row
+/// Front: [`p1_l`, `p1_r`, `p3_l`, `p3_r`, `p5_l`, `p5_r`, `p7_l`, `p7_r`]
+/// Back:  [`p2_l`, `p2_r`, `p4_l`, `p4_r`, `p6_l`, `p6_r`, `p8_l`, `p8_r`] with pairs reversed per row
 #[test]
 fn test_placement_8up_expectations() {
     // 16 pages = 1 complete sheet pair (8-up needs 2×4 grid = 8 pages per side, so 16 total)
@@ -554,7 +553,7 @@ fn test_placement_8up_32pages_expectations() {
 
     for page in 1..=32 {
         let count = all_flattened.iter().filter(|&&p| p == page).count();
-        assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        assert_eq!(count, 1, "Page {page} should appear exactly once");
     }
 
     // Should have no blank pages (perfect fit)
@@ -603,7 +602,7 @@ fn test_placement_8up_4pages_expectations() {
 
     for page in 1..=4 {
         let count = all_flattened.iter().filter(|&&p| p == page).count();
-        assert!(count >= 1, "Page {} should appear at least once", page);
+        assert!(count >= 1, "Page {page} should appear at least once");
     }
 
     // Exactly 12 blank slots (many padding positions remain blank for this tiny input)
@@ -629,30 +628,28 @@ fn test_small_input_8up_examples() {
         let ordering = calculate_saddle_stitch_order(n, 8);
         // Must have at least one side
         assert!(
-            ordering.len() >= 1,
-            "{} pages should produce at least 1 side",
-            n
+            !ordering.is_empty(),
+            "{n} pages should produce at least 1 side"
         );
         // Each side must have 8 slots
         for side in &ordering {
             assert_eq!(side.len(), 8, "Each side must have 8 slots for 8-up");
             for &p in side {
-                assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                assert!(p == 0 || p <= n, "Page {p} exceeds input {n}");
             }
         }
 
         // All pages 1..=n must appear at least once
         let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
         for page in 1..=n {
-            assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            assert!(flat.contains(&page), "Page {page} missing for n={n}");
         }
         // All padding slots should be blanks: blank_count == total_slots - n
         let blank_count = flat.iter().filter(|&&p| p == 0).count();
         let expected_blanks = flat.len() - n;
         assert_eq!(
             blank_count, expected_blanks,
-            "Expected {} blank slots for n={}, got {}",
-            expected_blanks, n, blank_count
+            "Expected {expected_blanks} blank slots for n={n}, got {blank_count}"
         );
     }
 }
@@ -662,27 +659,25 @@ fn test_small_input_4up_examples() {
     for &n in &[1usize, 2, 3, 5, 6, 7] {
         let ordering = calculate_saddle_stitch_order(n, 4);
         assert!(
-            ordering.len() >= 1,
-            "{} pages should produce at least 1 side",
-            n
+            !ordering.is_empty(),
+            "{n} pages should produce at least 1 side"
         );
         for side in &ordering {
             assert_eq!(side.len(), 4, "Each side must have 4 slots for 4-up");
             for &p in side {
-                assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                assert!(p == 0 || p <= n, "Page {p} exceeds input {n}");
             }
         }
         let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
         for page in 1..=n {
-            assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            assert!(flat.contains(&page), "Page {page} missing for n={n}");
         }
         // All padding slots should be blanks: blank_count == total_slots - n
         let blank_count = flat.iter().filter(|&&p| p == 0).count();
         let expected_blanks = flat.len() - n;
         assert_eq!(
             blank_count, expected_blanks,
-            "Expected {} blank slots for n={}, got {}",
-            expected_blanks, n, blank_count
+            "Expected {expected_blanks} blank slots for n={n}, got {blank_count}"
         );
     }
 }
@@ -693,27 +688,25 @@ fn test_small_input_16up_examples() {
     for &n in &[1usize, 2, 3, 4, 8, 15, 16] {
         let ordering = calculate_saddle_stitch_order(n, 16);
         assert!(
-            ordering.len() >= 1,
-            "{} pages should produce at least 1 side",
-            n
+            !ordering.is_empty(),
+            "{n} pages should produce at least 1 side"
         );
         for side in &ordering {
             assert_eq!(side.len(), 16, "Each side must have 16 slots for 16-up");
             for &p in side {
-                assert!(p == 0 || p <= n, "Page {} exceeds input {}", p, n);
+                assert!(p == 0 || p <= n, "Page {p} exceeds input {n}");
             }
         }
         let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
         for page in 1..=n {
-            assert!(flat.contains(&page), "Page {} missing for n={}", page, n);
+            assert!(flat.contains(&page), "Page {page} missing for n={n}");
         }
         // All padding slots should be blanks: blank_count == total_slots - n
         let blank_count = flat.iter().filter(|&&p| p == 0).count();
         let expected_blanks = flat.len() - n;
         assert_eq!(
             blank_count, expected_blanks,
-            "Expected {} blank slots for n={}, got {}",
-            expected_blanks, n, blank_count
+            "Expected {expected_blanks} blank slots for n={n}, got {blank_count}"
         );
     }
 }
@@ -760,7 +753,7 @@ fn test_4up_partial_rows() {
     // Verify all pages appear
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=5 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 
     // 4-up with 6 pages (1 sheet = 2 sides)
@@ -772,7 +765,7 @@ fn test_4up_partial_rows() {
     );
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=6 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 
     // 4-up with 7 pages (1 sheet = 2 sides)
@@ -784,7 +777,7 @@ fn test_4up_partial_rows() {
     );
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=7 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 }
 
@@ -822,8 +815,8 @@ fn golden_16up_109_pages_padding_and_grouping() {
     let blank_count = flat.iter().filter(|&&p| p == 0).count();
 
     // Compute expected blanks using the same logic as the algorithm's public contract
-    let min_sides = (num_pages + pps - 1) / pps;
-    let total_sides = if min_sides % 2 == 0 {
+    let min_sides = num_pages.div_ceil(pps);
+    let total_sides = if min_sides.is_multiple_of(2) {
         min_sides
     } else {
         min_sides + 1
@@ -833,8 +826,7 @@ fn golden_16up_109_pages_padding_and_grouping() {
 
     assert_eq!(
         blank_count, expected_blanks,
-        "Expected {} blank slots, found {}",
-        expected_blanks, blank_count
+        "Expected {expected_blanks} blank slots, found {blank_count}"
     );
 
     // The algorithm removes complete blank pairs (groups of 4) from the
@@ -848,8 +840,7 @@ fn golden_16up_109_pages_padding_and_grouping() {
         let cnt = flat.iter().filter(|&&p| p == page).count();
         assert_eq!(
             cnt, 1,
-            "Page {} should appear exactly once (found {})",
-            page, cnt
+            "Page {page} should appear exactly once (found {cnt})"
         );
     }
 }
@@ -893,8 +884,7 @@ fn golden_16up_16_pages_exact() {
         let cnt = flat.iter().filter(|&&p| p == page).count();
         assert_eq!(
             cnt, 1,
-            "Page {} should appear exactly once in 16-up 16 pages",
-            page
+            "Page {page} should appear exactly once in 16-up 16 pages"
         );
     }
 }
@@ -905,14 +895,17 @@ fn test_8up_partial_rows() {
 
     // 8-up with 1 page
     let ordering = calculate_saddle_stitch_order(1, 8);
-    assert!(ordering.len() >= 1, "1 page should produce at least 1 side");
+    assert!(
+        !ordering.is_empty(),
+        "1 page should produce at least 1 side"
+    );
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     assert!(flat.contains(&1), "Page 1 should appear");
 
     // 8-up with 5 pages
     let ordering = calculate_saddle_stitch_order(5, 8);
     assert!(
-        ordering.len() >= 1,
+        !ordering.is_empty(),
         "5 pages should produce at least 1 side"
     );
     for side in &ordering {
@@ -920,7 +913,7 @@ fn test_8up_partial_rows() {
     }
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=5 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 
     // 8-up with 9 pages (requires second sheet)
@@ -931,7 +924,7 @@ fn test_8up_partial_rows() {
     );
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=9 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 }
 
@@ -951,7 +944,7 @@ fn test_32up_and_64up() {
     }
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=64 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 
     // 32-up with 32 pages (1 sheet = 2 sides)
@@ -977,7 +970,7 @@ fn test_32up_and_64up() {
     }
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=128 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 
     // 32-up with 10 pages (partial, 1 sheet = 2 sides)
@@ -989,7 +982,7 @@ fn test_32up_and_64up() {
     );
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=10 {
-        assert!(flat.contains(&page), "Page {} should appear", page);
+        assert!(flat.contains(&page), "Page {page} should appear");
     }
 }
 
@@ -1005,7 +998,7 @@ fn test_large_page_counts() {
         let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
         for page in 1..=num_pages {
             let count = flat.iter().filter(|&&p| p == page).count();
-            assert_eq!(count, 1, "Page {} should appear exactly once", page);
+            assert_eq!(count, 1, "Page {page} should appear exactly once");
         }
 
         // For 2-up saddle stitch, the algorithm creates nested booklets
@@ -1018,9 +1011,7 @@ fn test_large_page_counts() {
         );
         assert!(
             ordering.len() <= num_pages,
-            "Should have at most {} sides for {} pages",
-            num_pages,
-            num_pages
+            "Should have at most {num_pages} sides for {num_pages} pages"
         );
 
         // Each side should have exactly 2 slots for 2-up
@@ -1053,8 +1044,7 @@ fn test_no_duplicate_non_blank_pages(#[case] num_pages: usize, #[case] pages_per
         let count = flat.iter().filter(|&&p| p == page).count();
         assert_eq!(
             count, 1,
-            "Page {} should appear exactly once in {}-up with {} pages, but appears {} times",
-            page, pages_per_sheet, num_pages, count
+            "Page {page} should appear exactly once in {pages_per_sheet}-up with {num_pages} pages, but appears {count} times"
         );
     }
 
@@ -1062,9 +1052,7 @@ fn test_no_duplicate_non_blank_pages(#[case] num_pages: usize, #[case] pages_per
     assert_eq!(
         flat.len(),
         num_pages,
-        "Total non-blank pages should equal input count for {}-up with {} pages",
-        pages_per_sheet,
-        num_pages
+        "Total non-blank pages should equal input count for {pages_per_sheet}-up with {num_pages} pages"
     );
 }
 
@@ -1084,9 +1072,7 @@ fn test_blank_pages_only_at_end(#[case] num_pages: usize, #[case] pages_per_shee
     // Check that the highest numbered page appears
     assert!(
         flat.contains(&num_pages),
-        "Highest page {} should appear in output for {}-up",
-        num_pages,
-        pages_per_sheet
+        "Highest page {num_pages} should appear in output for {pages_per_sheet}-up"
     );
 
     // All pages 1..=num_pages should appear somewhere
@@ -1094,10 +1080,7 @@ fn test_blank_pages_only_at_end(#[case] num_pages: usize, #[case] pages_per_shee
     for page in 1..=num_pages {
         assert!(
             flat.contains(&page),
-            "Page {} should appear in {}-up with {} pages",
-            page,
-            pages_per_sheet,
-            num_pages
+            "Page {page} should appear in {pages_per_sheet}-up with {num_pages} pages"
         );
     }
 }
@@ -1120,7 +1103,6 @@ fn test_correct_sheet_count(
     let actual_sheets = ordering.len() / 2;
     assert_eq!(
         actual_sheets, expected_sheets,
-        "Expected {} sheets for {} pages with {}-up, got {}",
-        expected_sheets, num_pages, pages_per_sheet, actual_sheets
+        "Expected {expected_sheets} sheets for {num_pages} pages with {pages_per_sheet}-up, got {actual_sheets}"
     );
 }
