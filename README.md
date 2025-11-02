@@ -2,52 +2,6 @@
 
 A small, focused Rust library and CLI for arranging PDF pages into booklet layouts (n-up) with common binding options.
 
-## Features
-
-- **Multiple Binding Types**:
-  - **Saddle Stitch** (nested): Traditional booklet binding with pages arranged in nested signatures
-  - **Perfect Binding** (sequential): Book binding where pages are stacked sequentially (WIP)
-- **Automatic Padding**: Rounds to nearest multiple of pages-per-sheet for proper imposition
-- **Correct Page Ordering**: Implements proper duplex booklet page ordering for accurate printing
-
-## Algorithm
-
-The saddle stitch imposition algorithm correctly:
-
-- Pads odd-page inputs to the next multiple of `pages_per_sheet`
-- Calculates optimal grid layout for page arrangement
-- Applies proper page reversal for duplex printing
-- Handles arbitrary power-of-2 n-up values
-- Verified with 64-up imposition on 109-page test (all pages present, no duplicates)
-
-### Saddle-stitch padding & placement (short)
-- Even number of sides: the algorithm rounds the number of physical "sides" (front/back) up to an even value when needed so that sheets are whole and can be saddle-stitched.
-- Grouped blank pairs: when possible the implementation removes whole groups of four padding pages (complete blank pairs) from the internal nesting calculation and keeps them together at the end of the output. That keeps the nesting traditional (outer→inner) while grouping entirely-blank sheets.
-- Remainder padding (0–3 pages) is left to the nesting algorithm and will pair with low-numbered pages as in classic saddle-stitch layouts.
-- Row reversal: for small layouts (4-up and lower) the back rows are placed without reversal; for larger n-up (8-up and up) specific grid shapes may require reversing the back-row ordering to match duplex flipping.
-
-
-## Notes and Capabilities
-
-- Assumes reasonably uniform page sizes across input PDF
-- Pads output with blank pages for proper sheet divisibility
-
-
-Building
-
-```bash
-cargo build --release
-
-Try it
-
-```bash
-cargo run --bin imposer -- -i input.pdf -o booklet.pdf
-
-Using the binary (when Cargo bin is in your PATH)
-
-If you prefer to run `imposer` directly from your shell without `cargo run`, install the binary into your Cargo bin directory (usually `~/.cargo/bin`) and make sure that directory is on your PATH.
-
-
 ## Docs
 
 Find the crate and documentation online:
@@ -55,22 +9,15 @@ Find the crate and documentation online:
 - [crates.io: imposer](https://crates.io/crates/imposer)
 - [docs.rs: imposer](https://docs.rs/imposer)
 
-- Install locally from the repository (installs into `~/.cargo/bin`):
-
-# imposer
-
-A small, focused Rust library and CLI for arranging PDF pages into booklet layouts (n-up) with common binding options.
-
 ## Features
 
-- **Library API**: Call `imposer::generate_booklet` with PDF bytes and configuration to get back imposed PDF bytes
-- **CLI**: `imposer --input in.pdf --output booklet.pdf [--pages-per-sheet N] [--binding-type TYPE]`
 - **Flexible n-up Saddle Stitch Imposition**: Support for power-of-two pages-per-sheet (2-up, 4-up, 8-up, 16-up, 32-up, ...). Choose the n-up value that fits your printer and folding strategy.
 - **Multiple Binding Types**:
   - **Saddle Stitch** (nested): Traditional booklet binding with pages arranged in nested signatures
   - **Perfect Binding** (sequential): Book binding where pages are stacked sequentially (WIP)
 - **Automatic Padding**: Rounds to nearest multiple of pages-per-sheet for proper imposition
 - **Correct Page Ordering**: Implements proper duplex booklet page ordering for accurate printing
+
 
 ## Algorithm
 
@@ -81,13 +28,6 @@ The saddle stitch imposition algorithm correctly:
 - Applies proper page reversal for duplex printing
 - Handles arbitrary power-of-2 n-up values
 - Verified with 64-up imposition on 109-page test (all pages present, no duplicates)
-
-### Saddle-stitch padding & placement (short)
-
-- Even number of sides: the algorithm rounds the number of physical "sides" (front/back) up to an even value when needed so that sheets are whole and can be saddle-stitched.
-- Grouped blank pairs: when possible the implementation removes whole groups of four padding pages (complete blank pairs) from the internal nesting calculation and keeps them together at the end of the output. That keeps the nesting traditional (outer→inner) while grouping entirely-blank sheets.
-- Remainder padding (0–3 pages) is left to the nesting algorithm and will pair with low-numbered pages as in classic saddle-stitch layouts.
-- Row reversal: for small layouts (4-up and lower) the back rows are placed without reversal; for larger n-up (8-up and up) specific grid shapes may require reversing the back-row ordering to match duplex flipping.
 
 ## Notes and Capabilities
 
@@ -98,15 +38,14 @@ The saddle stitch imposition algorithm correctly:
 
 ```bash
 cargo build --release
-```
 
-## Try it
+Try it
 
 ```bash
 cargo run --bin imposer -- -i input.pdf -o booklet.pdf
 ```
 
-## Using the binary (when Cargo bin is in your PATH)
+Using the binary (when Cargo bin is in your PATH)
 
 If you prefer to run `imposer` directly from your shell without `cargo run`, install the binary into your Cargo bin directory (usually `~/.cargo/bin`) and make sure that directory is on your PATH.
 
@@ -128,23 +67,3 @@ cargo install imposer
 export PATH="$HOME/.cargo/bin:$PATH"
 # Add the line above to ~/.bashrc, ~/.zshrc, or your shell profile to make it persistent
 ```
-
-- Run the installed binary directly:
-
-```bash
-imposer -i input.pdf -o booklet.pdf --pages-per-sheet 4
-```
-
-- Alternatively, run the release build directly from the project without installing:
-
-```bash
-cargo build --release
-./target/release/imposer -i input.pdf -o booklet.pdf
-```
-
-## Docs
-
-Find the crate and documentation online:
-
-- crates.io: https://crates.io/crates/imposer
-- docs.rs: https://docs.rs/imposer
