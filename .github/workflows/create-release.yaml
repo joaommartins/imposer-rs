@@ -1,0 +1,71 @@
+name: CD - create release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check-version.outputs.version_changed }}
+      current_version: ${{ steps.get-current-version.outputs.current_version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full commit history to be able to inspect previous commits/tags
+
+      - name: Get current version
+        id: get-current-version
+        run: |
+          current_version=$(grep '^version =' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo $current_version
+          echo "current_version=$current_version" >> "$GITHUB_ENV"
+          echo "current_version=$current_version" >> "$GITHUB_OUTPUT"
+      - name: Get previous version
+        id: get-previous-version
+        run: |
+          # If there is no previous commit (first commit), `HEAD~1` will fail.
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            previous_version=$(git show HEAD~1:Cargo.toml | grep '^version =' | sed 's/version = "\(.*\)"/\1/')
+          else
+            previous_version=""
+          fi
+          echo "$previous_version"
+          echo "previous_version=$previous_version" >> "$GITHUB_ENV"
+      - name: Check if version changed
+        id: check-version
+        run: |
+          if [ "$current_version" != "$previous_version" ]; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  create-release:
+    needs:
+      - check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create a Release
+        uses: elgohr/Github-Release-Action@v5
+        env:
+          # Prefer the built-in token; if you need a PAT for additional scopes you can set ACTION_PAT
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          title: v${{ needs.check-version.outputs.current_version }}
+          tag: v${{ needs.check-version.outputs.current_version }}

@@ -96,8 +96,7 @@ mod tests {
             let count = flattened.iter().filter(|&&p| p == page).count();
             assert_eq!(
                 count, 1,
-                "With {} pages and {}-up: Page {} appears {} times (should be 1)",
-                num_pages, pages_per_sheet, page, count
+                "With {num_pages} pages and {pages_per_sheet}-up: Page {page} appears {count} times (should be 1)"
             );
         }
     }
