@@ -24,10 +24,11 @@ use crate::imposition::grid::calculate_saddle_stitch_grid;
 /// - Place pairs into the n-up grid row-by-row. Pairs are consumed in sequence
 ///   and alternately assigned to front and back slots within each row, creating
 ///   the horizontal zigzag pattern (front left-to-right, back right-to-left).
+///   Within the back slot, pairs are placed from right-to-left within their row.
 /// - For layouts larger than 4-up (i.e. `pages_per_sheet > 4`, typically 8-up
-///   and above), the back-side row ordering is reversed in certain grid shapes
-///   to account for duplex flipping; for 4-up and smaller, the back rows are
-///   placed without row reversal.
+///   and above) with a single pair per row (e.g., 2×4 grid for 8-up), back-side
+///   rows are reversed vertically to account for duplex flipping. For 4-up and
+///   smaller, back rows are placed in the same vertical order as the front.
 /// - If a sheet's front and back pages are identical (which can happen for
 ///   very small inputs), the back side is not emitted (deduplication). The
 ///   function guarantees that every non-zero page number appears exactly once.

@@ -1,9 +1,10 @@
-use crate::config::{
-    BindingType, BookletConfig, Dimensions, GridLayout, ImpositionLayout, Scale, SheetPages,
-};
+use crate::config::{BookletConfig, Dimensions, GridLayout, ImpositionLayout, Scale, SheetPages};
 use crate::error::{BookletError, Result};
-use crate::imposition::calculate_page_order;
-use lopdf::{Dictionary, Document, Object, ObjectId};
+use crate::imposition::{calculate_page_order, calculate_page_order_with_signatures};
+use lopdf::{
+    content::{Content, Operation},
+    {Dictionary, Document, Object, ObjectId, Stream},
+};
 
 /// Calculate the grid layout (rows, cols) for n-up imposition
 ///
@@ -145,7 +146,18 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     };
 
     // Calculate booklet page order
-    let page_order = calculate_page_order(num_pages, config.pages_per_sheet, config.binding_type);
+    let page_order = if let Some(num_sigs) = config.num_signatures {
+        // Use signature count if specified (only for perfect bound)
+        calculate_page_order_with_signatures(num_pages, config.pages_per_sheet, num_sigs)
+    } else {
+        // Use standard calculation based on binding type
+        calculate_page_order(
+            num_pages,
+            config.pages_per_sheet,
+            config.binding_type,
+            config.sheets_per_signature,
+        )
+    };
 
     // Create output document
     let mut output_doc = Document::with_version("1.4");
@@ -269,14 +281,9 @@ fn create_imposed_page_nup(
     cache: &mut std::collections::HashMap<ObjectId, ObjectId>,
     config: &BookletConfig,
 ) -> Result<ObjectId> {
-    use lopdf::content::{Content, Operation};
-    use lopdf::{Dictionary, Object, Stream};
-
     // Extract config values
     let draw_guides = config.draw_guides;
     let number_pages = config.number_pages;
-    let binding_type = config.binding_type;
-    let pages_per_sheet = config.pages_per_sheet;
 
     // Create resources dictionary for XObjects
     let mut resources = Dictionary::new();
@@ -331,16 +338,8 @@ fn create_imposed_page_nup(
                 ));
                 operations.push(Operation::new("S", vec![])); // Stroke the rectangle
 
-                // Check if this position needs rotation (4-up perfect binding, top row)
-                let needs_rotation =
-                    binding_type == BindingType::PerfectBound && pages_per_sheet == 4 && row == 0;
-
                 // Draw the page number in the center
-                let page_num_str = if needs_rotation {
-                    format!("{page_num}↻") // Add rotation indicator
-                } else {
-                    format!("{page_num}")
-                };
+                let page_num_str = format!("{page_num}");
                 let font_size = (layout.slot.height / 3.0)
                     .min(layout.slot.width / 2.0)
                     .min(144.0);
@@ -381,58 +380,23 @@ fn create_imposed_page_nup(
                     // Calculate the scaled page dimensions
                     let scaled_width = layout.source.width * layout.scale.x;
                     let scaled_height = layout.source.height * layout.scale.y;
-                    // Check if this page needs to be rotated 180 degrees
-                    // For 4-up perfect binding, top row pages (row 0) are upside down
-                    let needs_rotation = binding_type == BindingType::PerfectBound
-                        && pages_per_sheet == 4
-                        && row == 0;
+                    // Normal orientation - no rotation for perfect binding
+                    // Center the scaled page within the slot
+                    let x_offset = slot_x + (layout.slot.width - scaled_width) / 2.0;
+                    let y_offset = slot_y + (layout.slot.height - scaled_height) / 2.0;
 
-                    if needs_rotation {
-                        // For 180-degree rotation, we need to:
-                        // 1. Rotate 180 degrees around the center of the slot
-                        // 2. The transformation matrix for 180-degree rotation is: [-sx, 0, 0, -sy, tx, ty]
-                        // 3. We need to adjust the translation to center the rotated page
-                        let center_x = slot_x + layout.slot.width / 2.0;
-                        let center_y = slot_y + layout.slot.height / 2.0;
-
-                        // For a 180-degree rotation around the center, we translate to center,
-                        // rotate, then translate back. This is equivalent to:
-                        // tx = center_x + center_x (from rotation)
-                        // ty = center_y + center_y (from rotation)
-                        let x_offset = center_x + scaled_width / 2.0;
-                        let y_offset = center_y + scaled_height / 2.0;
-
-                        // Apply transformation with 180-degree rotation (-scale_x and -scale_y)
-                        operations.push(Operation::new(
-                            "cm",
-                            vec![
-                                (-layout.scale.x).into(),
-                                0.into(),
-                                0.into(),
-                                (-layout.scale.y).into(),
-                                x_offset.into(),
-                                y_offset.into(),
-                            ],
-                        ));
-                    } else {
-                        // Normal orientation
-                        // Center the scaled page within the slot
-                        let x_offset = slot_x + (layout.slot.width - scaled_width) / 2.0;
-                        let y_offset = slot_y + (layout.slot.height - scaled_height) / 2.0;
-
-                        // Apply transformation (scale and translate)
-                        operations.push(Operation::new(
-                            "cm",
-                            vec![
-                                layout.scale.x.into(),
-                                0.into(),
-                                0.into(),
-                                layout.scale.y.into(),
-                                x_offset.into(),
-                                y_offset.into(),
-                            ],
-                        ));
-                    }
+                    // Apply transformation (scale and translate)
+                    operations.push(Operation::new(
+                        "cm",
+                        vec![
+                            layout.scale.x.into(),
+                            0.into(),
+                            0.into(),
+                            layout.scale.y.into(),
+                            x_offset.into(),
+                            y_offset.into(),
+                        ],
+                    ));
 
                     operations.push(Operation::new(
                         "Do",
@@ -703,7 +667,7 @@ fn copy_object_deep(
                 let copied_value = copy_object_deep(source_doc, dest_doc, value, cache)?;
                 new_dict.set(key.clone(), copied_value);
             }
-            Ok(Object::Stream(lopdf::Stream {
+            Ok(Object::Stream(Stream {
                 dict: new_dict,
                 content: stream.content.clone(),
                 allows_compression: stream.allows_compression,

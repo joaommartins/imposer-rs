@@ -1,185 +1,236 @@
-/// Calculate page ordering for perfect bound booklets
+use super::grid::calculate_saddle_stitch_grid;
+use super::saddle_stitch::calculate_saddle_stitch_order;
+
+/// Calculate page ordering for perfect bound booklets with signature support
 ///
-/// **⚠️ WARNING: This module is a Work In Progress (WIP) and not ready for production use!**
+/// Perfect binding arranges pages into signatures, where each signature is bound
+/// independently using saddle-stitch-like nesting. Unlike traditional saddle stitch
+/// where all pages nest together, perfect binding groups pages into signatures
+/// that are then stacked behind each other.
 ///
-/// Pages are arranged for work-and-turn or work-and-tumble printing
-/// For 2-up: simple layout with [1,4] front, [3,2] back
-/// For 4-up: head-to-head layout with top row upside down
+/// # Key Difference from Saddle Stitch
 ///
-/// # Note
+/// - **Saddle Stitch**: All pages nest together (outer sheet wraps all inner sheets)
+/// - **Perfect Bound**: Pages are grouped into signatures, each signature nests
+///   internally, then signatures are stacked
 ///
-/// This implementation is experimental and has not been fully tested or verified.
-/// Do not use for production booklet generation. Use saddle stitch binding instead.
-#[deprecated(
-    since = "0.1.0",
-    note = "Perfect binding is work in progress and not yet ready for use"
-)]
-pub fn calculate_perfect_bound_order(num_pages: usize, pages_per_sheet: usize) -> Vec<Vec<usize>> {
-    if pages_per_sheet == 0 {
+/// # Sheets Per Signature Semantics
+///
+/// The `sheets_per_signature` parameter refers to the number of **physical sheets after cutting**.
+/// For different n-up values:
+/// - 2-up: 1 printing sheet → 1 physical sheet (no cutting needed)
+/// - 4-up: 1 printing sheet → 2 physical sheets (cut horizontally, stacking 2 × 2-up sheets)
+/// - 8-up: 1 printing sheet → 4 physical sheets (cut horizontally and vertically)
+///
+/// When calculating pages per signature, the algorithm converts the requested physical sheets
+/// to the number of printing sheets needed, then calculates pages accordingly.
+/// This ensures that requesting "2 sheets/sig" with 4-up produces the same page grouping as
+/// requesting "2 sheets/sig" with 2-up, since both require 1 printing sheet per signature.
+///
+/// # Algorithm
+///
+/// 1. Calculate how many physical sheets one printing sheet produces (based on grid layout)
+/// 2. Determine the number of printing sheets needed to achieve the requested physical sheets
+/// 3. Calculate pages per signature (`pages_per_sheet` × 2 × printing sheets per signature)
+/// 4. For each signature, apply saddle stitch ordering to that signature's page range
+/// 5. Stack the signatures sequentially (not nested as in pure saddle stitch)
+///
+/// # Examples
+///
+/// For 16 pages, 4-up, 2 sheets/signature:
+/// - 4-up produces 2 physical sheets per printing sheet
+/// - 2 physical sheets ÷ 2 = 1 printing sheet per signature = 8 pages/sig
+/// - Signature 1 (pages 1-8): Apply saddle stitch → [8,1,6,3]/[2,7,4,5]
+/// - Signature 2 (pages 9-16): Apply saddle stitch → [16,9,14,11]/[10,15,12,13]
+///
+/// For 8 pages, 4-up, 2 sheets/signature:
+/// - 4-up produces 2 physical sheets per printing sheet
+/// - 2 physical sheets ÷ 2 = 1 printing sheet per signature = 8 pages/sig
+/// - Single signature with all 8 pages nested like traditional saddle stitch
+///
+/// This is the same page grouping as 8 pages, 2-up, 2 sheets/signature:
+/// - 2-up produces 1 physical sheet per printing sheet
+/// - 2 physical sheets ÷ 1 = 2 printing sheets per signature = 8 pages/sig
+/// - Same signature structure but pages laid out differently (2-up vs 4-up grid)
+#[must_use]
+pub fn calculate_perfect_bound_order(
+    num_pages: usize,
+    pages_per_sheet: usize,
+    sheets_per_signature: usize,
+) -> Vec<Vec<usize>> {
+    if pages_per_sheet < 2 || !pages_per_sheet.is_power_of_two() || sheets_per_signature < 1 {
         return Vec::new();
     }
 
-    if pages_per_sheet == 2 {
-        // 2-up: simple short-edge duplex layout
-        calculate_perfect_bound_2up(num_pages)
-    } else if pages_per_sheet == 4 {
-        // 4-up: head-to-head layout (top row upside down)
-        calculate_perfect_bound_4up(num_pages)
-    } else {
-        // For other n-up, use simple sequential layout
-        calculate_perfect_bound_simple(num_pages, pages_per_sheet)
-    }
-}
-
-/// 2-up perfect binding: [1,4] front, [3,2] back
-fn calculate_perfect_bound_2up(num_pages: usize) -> Vec<Vec<usize>> {
-    let pages_per_physical_sheet = 4;
-    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
-
-    let mut ordering = Vec::new();
-    let num_sheets = total_pages / pages_per_physical_sheet;
-
-    for sheet in 0..num_sheets {
-        let base_page = sheet * pages_per_physical_sheet + 1;
-
-        // Front: [1, 4], [5, 8], etc.
-        let front_pages = vec![
-            if base_page <= num_pages { base_page } else { 0 },
-            if base_page + 3 <= num_pages {
-                base_page + 3
-            } else {
-                0
-            },
-        ];
-        ordering.push(front_pages);
-
-        // Back: [3, 2], [7, 6], etc.
-        let back_pages = vec![
-            if base_page + 2 <= num_pages {
-                base_page + 2
-            } else {
-                0
-            },
-            if base_page < num_pages {
-                base_page + 1
-            } else {
-                0
-            },
-        ];
-        ordering.push(back_pages);
+    if num_pages == 0 {
+        return Vec::new();
     }
 
-    ordering
-}
+    // Calculate how many physical sheets are produced from one printing sheet
+    let (grid_rows, grid_cols) = calculate_saddle_stitch_grid(pages_per_sheet);
+    let physical_sheets_per_printing_sheet = (grid_rows * grid_cols) / 2;
 
-/// 4-up perfect binding with head-to-head layout
-/// Front: [5, 4(upside down), 8, 1] -> grid: top row [5,4], bottom row [8,1]
-/// Back: [3, 6(upside down), 2, 7] -> grid: top row [3,6], bottom row [2,7]
-fn calculate_perfect_bound_4up(num_pages: usize) -> Vec<Vec<usize>> {
-    let pages_per_physical_sheet = 8;
-    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
+    // Calculate printing sheets per signature needed to achieve the requested physical sheets
+    let printing_sheets_per_signature =
+        sheets_per_signature.div_ceil(physical_sheets_per_printing_sheet);
 
-    let mut ordering = Vec::new();
-    let num_sheets = total_pages / pages_per_physical_sheet;
+    // Calculate pages per signature (pages_per_sheet × 2 for front/back × printing sheets in signature)
+    let pages_per_signature = pages_per_sheet * 2 * printing_sheets_per_signature;
 
-    for sheet in 0..num_sheets {
-        let base = sheet * pages_per_physical_sheet;
+    // Calculate total signatures needed
+    let total_signatures = num_pages.div_ceil(pages_per_signature);
 
-        // Front: [5, 4, 8, 1] (positions: top-left, top-right, bottom-left, bottom-right)
-        let front_pages = vec![
-            if base + 5 <= num_pages { base + 5 } else { 0 },
-            if base + 4 <= num_pages { base + 4 } else { 0 },
-            if base + 8 <= num_pages { base + 8 } else { 0 },
-            if base < num_pages { base + 1 } else { 0 },
-        ];
-        ordering.push(front_pages);
+    let mut result = Vec::new();
 
-        // Back: [3, 6, 2, 7] (positions: top-left, top-right, bottom-left, bottom-right)
-        let back_pages = vec![
-            if base + 3 <= num_pages { base + 3 } else { 0 },
-            if base + 6 <= num_pages { base + 6 } else { 0 },
-            if base + 2 <= num_pages { base + 2 } else { 0 },
-            if base + 7 <= num_pages { base + 7 } else { 0 },
-        ];
-        ordering.push(back_pages);
+    // Process each signature independently
+    for sig_idx in 0..total_signatures {
+        let signature_start = sig_idx * pages_per_signature + 1;
+        let signature_end = ((sig_idx + 1) * pages_per_signature).min(num_pages);
+        let signature_page_count = signature_end - signature_start + 1;
+
+        // Apply saddle stitch to this signature's page range
+        let signature_ordering =
+            calculate_saddle_stitch_order(signature_page_count, pages_per_sheet);
+
+        // Remap page numbers from signature-local (1, 2, 3...) to global page numbers
+        let remapped_ordering: Vec<Vec<usize>> = signature_ordering
+            .into_iter()
+            .map(|side| {
+                side.into_iter()
+                    .map(|page| {
+                        if page == 0 {
+                            0 // Keep blanks as 0
+                        } else {
+                            signature_start + page - 1 // Remap to global page number
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        result.extend(remapped_ordering);
     }
 
-    ordering
-}
-
-/// Simple sequential layout for other n-up configurations
-fn calculate_perfect_bound_simple(num_pages: usize, pages_per_sheet: usize) -> Vec<Vec<usize>> {
-    let pages_per_physical_sheet = pages_per_sheet * 2;
-    let total_pages = num_pages.div_ceil(pages_per_physical_sheet) * pages_per_physical_sheet;
-
-    let mut ordering = Vec::new();
-    let num_sheets = total_pages / pages_per_physical_sheet;
-
-    for sheet in 0..num_sheets {
-        let base_page = sheet * pages_per_physical_sheet + 1;
-
-        // Front: left side has low pages, right side has high pages
-        let mut front_pages = Vec::new();
-        for i in 0..pages_per_sheet {
-            let page_num = if i < pages_per_sheet / 2 {
-                base_page + i
-            } else {
-                base_page + pages_per_physical_sheet - 1 - (i - pages_per_sheet / 2)
-            };
-
-            if page_num <= num_pages {
-                front_pages.push(page_num);
-            } else {
-                front_pages.push(0);
-            }
-        }
-        ordering.push(front_pages);
-
-        // Back: middle pages in reverse order
-        let mut back_pages = Vec::new();
-        for i in (0..pages_per_sheet).rev() {
-            let page_num = base_page + pages_per_sheet / 2 + i;
-
-            if page_num <= num_pages {
-                back_pages.push(page_num);
-            } else {
-                back_pages.push(0);
-            }
-        }
-        ordering.push(back_pages);
-    }
-
-    ordering
+    // For perfect binding, do NOT reorder blanks.
+    // The saddle-stitch algorithm within each signature already places blanks
+    // in the correct positions for proper folding. Just return as-is.
+    result
 }
 
 #[cfg(test)]
-#[expect(deprecated)]
-mod tests {
-    use super::*;
+#[path = "./test_perfect_bound.rs"]
+mod test_perfect_bound;
 
-    #[test]
-    fn test_perfect_bound_4_pages_2up() {
-        let ordering = calculate_perfect_bound_order(4, 2);
-        // Perfect bound: front [1, 4], back [3, 2] (reversed for short-edge duplex)
-        assert_eq!(ordering, vec![vec![1, 4], vec![3, 2]]);
+/// Calculate page ordering for perfect bound booklets with a specified number of signatures.
+///
+/// This function distributes pages as evenly as possible across the requested number
+/// of signatures. Each signature internally uses saddle-stitch ordering (as in the
+/// standard perfect binding), but the total number of signatures is determined by
+/// the input rather than by `sheets_per_signature`.
+///
+/// Pages are distributed to minimise variance: when there are extra pages (remainder),
+/// they are spread throughout the signatures rather than concentrated at the beginning.
+/// This results in more balanced signature sizes.
+///
+/// # Algorithm
+///
+/// 1. Calculate base pages per signature and remainder
+/// 2. Distribute remainder pages evenly across signatures
+/// 3. For each signature, apply saddle stitch ordering
+/// 4. Stack signatures sequentially
+/// 5. Move all blanks to the very end
+///
+/// # Example
+///
+/// For 10 pages across 3 signatures:
+/// - `base_pages` = 10 / 3 = 3, remainder = 1
+/// - Distribute remainder evenly: signatures get [3, 4, 3] pages
+/// - Each signature is ordered with saddle-stitch internally
+///
+/// For 100 pages across 5 signatures:
+/// - Each signature gets exactly 20 pages
+#[must_use]
+pub fn calculate_perfect_bound_order_with_signature_count(
+    num_pages: usize,
+    pages_per_sheet: usize,
+    num_signatures: usize,
+) -> Vec<Vec<usize>> {
+    if pages_per_sheet < 2
+        || !pages_per_sheet.is_power_of_two()
+        || num_signatures < 1
+        || num_pages == 0
+    {
+        return Vec::new();
     }
 
-    #[test]
-    fn test_perfect_bound_8_pages_2up() {
-        let ordering = calculate_perfect_bound_order(8, 2);
-        // Perfect bound: [1, 4], [3, 2], [5, 8], [7, 6]
-        assert_eq!(
-            ordering,
-            vec![vec![1, 4], vec![3, 2], vec![5, 8], vec![7, 6]]
-        );
+    // Calculate pages per signature, distributing evenly
+    let base_pages_per_sig = num_pages / num_signatures;
+    let remainder = num_pages % num_signatures;
+
+    // Create a vector of signature sizes, distributing remainder pages evenly
+    // from the centre outward. For example:
+    // - 10 pages, 3 signatures -> [3, 4, 3] (centre-weighted)
+    // - 13 pages, 5 signatures -> [2, 3, 3, 3, 2] (centre-weighted)
+    let mut sig_sizes = vec![base_pages_per_sig; num_signatures];
+
+    // Distribute remainder pages by incrementing from centre outward
+    // This creates a more balanced appearance with smaller signatures at edges
+    for i in 0..remainder {
+        // For i=0, place at centre; i=1 symmetric; i=2 next inner pair, etc.
+        let centre = num_signatures / 2;
+        let offset = i.div_ceil(2);
+        let is_left = i % 2 == 0;
+
+        let idx = if is_left {
+            centre - offset
+        } else {
+            centre + offset
+        };
+
+        // Ensure index is within bounds
+        if idx < num_signatures {
+            sig_sizes[idx] += 1;
+        }
     }
 
-    #[test]
-    fn test_perfect_bound_8_pages_4up() {
-        let ordering = calculate_perfect_bound_order(8, 4);
-        // Perfect bound 4-up with head-to-head layout:
-        // Front: [5, 4, 8, 1] (top row: 5, 4(upside down); bottom row: 8, 1)
-        // Back: [3, 6, 2, 7] (top row: 3, 6(upside down); bottom row: 2, 7)
-        assert_eq!(ordering, vec![vec![5, 4, 8, 1], vec![3, 6, 2, 7]]);
+    let mut result = Vec::new();
+    let mut current_page = 1usize;
+
+    // Process each signature
+    for sig_page_count in sig_sizes {
+        if sig_page_count == 0 {
+            continue;
+        }
+
+        let signature_start = current_page;
+        let signature_end = current_page + sig_page_count - 1;
+
+        // Apply saddle stitch to this signature's page range
+        let signature_ordering = calculate_saddle_stitch_order(sig_page_count, pages_per_sheet);
+
+        // Remap page numbers from signature-local (1, 2, 3...) to global page numbers
+        let remapped_ordering: Vec<Vec<usize>> = signature_ordering
+            .into_iter()
+            .map(|side| {
+                side.into_iter()
+                    .map(|page| {
+                        if page == 0 {
+                            0 // Keep blanks as 0
+                        } else if page <= sig_page_count {
+                            signature_start + page - 1 // Remap to global page number
+                        } else {
+                            0 // Page beyond signature range becomes blank
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        result.extend(remapped_ordering);
+        current_page = signature_end + 1;
     }
+
+    // Post-process: For perfect binding, do NOT reorder blanks.
+    // The saddle-stitch algorithm already places blanks correctly. Just return as-is.
+    result
 }

@@ -59,10 +59,23 @@ struct Args {
     #[arg(long)]
     number_pages: bool,
 
-    /// Use perfect binding instead of saddle stitch (sequential page order)
-    /// **WARNING: This feature is work in progress and not yet ready for use!**
+    /// Use perfect binding instead of saddle stitch
+    /// Perfect binding stacks sheets behind each other rather than nesting them
     #[arg(long)]
     perfect_binding: bool,
+
+    /// Number of sheets per signature for perfect binding (default: 1)
+    /// Only applies to perfect binding. Sheets within a signature are nested together.
+    /// Use 1 for simple stacking, higher values for sewn signatures.
+    #[arg(long, default_value = "1")]
+    sheets_per_signature: usize,
+
+    /// Number of signatures for perfect binding (optional)
+    /// If specified, pages are evenly distributed across this many signatures.
+    /// Takes precedence over --sheets-per-signature.
+    /// Only applies to perfect binding.
+    #[arg(long)]
+    num_signatures: Option<usize>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -79,15 +92,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         BindingType::SaddleStitch
     };
-
-    // Perfect binding is still work in progress - reject attempts to use it
-    if binding_type == BindingType::PerfectBound {
-        return Err(
-            "Perfect binding is currently a work in progress and not ready for use. \
-             Please use saddle stitch binding instead (the default)."
-                .into(),
-        );
-    }
 
     // Validate pages_per_sheet for saddle stitch binding
     if binding_type == BindingType::SaddleStitch
@@ -107,7 +111,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_preserve_aspect_ratio(!args.no_preserve_aspect_ratio)
         .with_draw_guides(args.draw_guides)
         .with_number_pages(args.number_pages)
-        .with_binding_type(binding_type);
+        .with_binding_type(binding_type)
+        .with_sheets_per_signature(args.sheets_per_signature)
+        .with_num_signatures(args.num_signatures);
 
     let out = imposer::generate_booklet_with_config(&buf, &config)?;
 

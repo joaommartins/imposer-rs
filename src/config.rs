@@ -304,6 +304,16 @@ pub struct BookletConfig {
     pub number_pages: bool,
     /// Binding type for the booklet (saddle stitch or perfect bound)
     pub binding_type: BindingType,
+    /// Number of sheets per signature for perfect bound (default: 1)
+    /// Only used for perfect bound binding. Sheets within a signature are nested together
+    /// like saddle stitch, then signatures are stacked behind each other.
+    /// For saddle stitch, this value is ignored.
+    pub sheets_per_signature: usize,
+    /// Number of signatures for perfect bound (optional override)
+    /// If set, pages are evenly distributed across this many signatures.
+    /// Takes precedence over `sheets_per_signature`.
+    /// Only used for perfect bound binding.
+    pub num_signatures: Option<usize>,
 }
 
 impl Default for BookletConfig {
@@ -315,7 +325,9 @@ impl Default for BookletConfig {
             pages_per_sheet: 2,
             draw_guides: false,
             number_pages: false,
-            binding_type: BindingType::default(),
+            binding_type: BindingType::SaddleStitch,
+            sheets_per_signature: 1,
+            num_signatures: None,
         }
     }
 }
@@ -331,7 +343,9 @@ impl BookletConfig {
             pages_per_sheet: 2,
             draw_guides: false,
             number_pages: false,
-            binding_type: BindingType::default(),
+            binding_type: BindingType::SaddleStitch,
+            sheets_per_signature: 1,
+            num_signatures: None,
         }
     }
 
@@ -374,6 +388,24 @@ impl BookletConfig {
     #[must_use]
     pub fn with_binding_type(mut self, binding_type: BindingType) -> Self {
         self.binding_type = binding_type;
+        self
+    }
+
+    /// Set the number of sheets per signature for perfect bound (default: 1)
+    /// Only applies to perfect bound binding. Ignored for saddle stitch.
+    #[must_use]
+    pub fn with_sheets_per_signature(mut self, sheets: usize) -> Self {
+        self.sheets_per_signature = sheets;
+        self
+    }
+
+    /// Set the number of signatures for perfect bound
+    /// If set, pages are evenly distributed across this many signatures.
+    /// Takes precedence over `sheets_per_signature`.
+    /// Only applies to perfect bound binding.
+    #[must_use]
+    pub fn with_num_signatures(mut self, num: Option<usize>) -> Self {
+        self.num_signatures = num;
         self
     }
 }
