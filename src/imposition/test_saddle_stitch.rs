@@ -13,10 +13,7 @@ fn test_page_ordering_8_pages_2up() {
     let ordering = calculate_saddle_stitch_order(8, 2);
     // Sheet 1 front: [8, 1], back: [2, 7]
     // Sheet 2 front: [6, 3], back: [4, 5]
-    assert_eq!(
-        ordering,
-        vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]
-    );
+    assert_eq!(ordering, vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]);
 }
 
 #[test]
@@ -56,10 +53,7 @@ fn test_saddle_stitch_2up_8_pages() {
     // Standard 2-up: no pair reversal
     // Sheet 1: [8, 1] / [2, 7]
     // Sheet 2: [6, 3] / [4, 5]
-    assert_eq!(
-        ordering,
-        vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]
-    );
+    assert_eq!(ordering, vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]);
 }
 
 #[test]
@@ -92,10 +86,7 @@ fn test_saddle_stitch_8up_16_pages() {
     //   Back: [4, 13, 2, 15, 8, 9, 6, 11] (pairs reversed within each row)
     assert_eq!(
         ordering,
-        vec![
-            vec![16, 1, 14, 3, 12, 5, 10, 7],
-            vec![4, 13, 2, 15, 8, 9, 6, 11]
-        ]
+        vec![vec![16, 1, 14, 3, 12, 5, 10, 7], vec![4, 13, 2, 15, 8, 9, 6, 11]]
     );
 }
 
@@ -134,16 +125,8 @@ fn test_saddle_stitch_4up_12_pages() {
     assert_eq!(ordering[1], vec![2, 11, 4, 9], "Sheet 1 back");
 
     // Sheet 2: saddle-stitch continues with complete blank pair at end
-    assert_eq!(
-        ordering[2],
-        vec![8, 5, 0, 0],
-        "Sheet 2 front: pairs 4-5, then blanks"
-    );
-    assert_eq!(
-        ordering[3],
-        vec![6, 7, 0, 0],
-        "Sheet 2 back: pair 5, then blank pair"
-    );
+    assert_eq!(ordering[2], vec![8, 5, 0, 0], "Sheet 2 front: pairs 4-5, then blanks");
+    assert_eq!(ordering[3], vec![6, 7, 0, 0], "Sheet 2 back: pair 5, then blank pair");
 
     // Verify each page 1..=12 appears exactly once across all sides
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
@@ -152,11 +135,7 @@ fn test_saddle_stitch_4up_12_pages() {
         assert_eq!(count, 1, "Page {page} should appear exactly once");
     }
     let blank_count = flat.iter().filter(|&&p| p == 0).count();
-    assert_eq!(
-        blank_count,
-        flat.len() - 12,
-        "Blank count should equal padding slots"
-    );
+    assert_eq!(blank_count, flat.len() - 12, "Blank count should equal padding slots");
 }
 
 #[test]
@@ -281,10 +260,7 @@ fn test_blank_page_handling() {
     // and all remaining slots are blanks. Verify that invariant.
     let blank_count = flattened.iter().filter(|&&p| p == 0).count();
     let expected_blanks = flattened.len() - 3;
-    assert_eq!(
-        blank_count, expected_blanks,
-        "Blank slots should match padding"
-    );
+    assert_eq!(blank_count, expected_blanks, "Blank slots should match padding");
 
     for page in 1..=3 {
         let count = flattened.iter().filter(|&&p| p == page).count();
@@ -401,11 +377,7 @@ fn test_placement_2up_expectations() {
 
     // 8 pages = 2 complete sheet pairs (4 sides total)
     let ordering = calculate_saddle_stitch_order(8, 2);
-    assert_eq!(
-        ordering.len(),
-        4,
-        "2-up with 8 pages: 2 sheet pairs = 4 sides"
-    );
+    assert_eq!(ordering.len(), 4, "2-up with 8 pages: 2 sheet pairs = 4 sides");
     // First sheet pair
     assert_eq!(ordering[0], vec![8, 1], "Sheet 1 front: pair 1 (outer)");
     assert_eq!(ordering[1], vec![2, 7], "Sheet 1 back: pair 2");
@@ -429,21 +401,13 @@ fn test_placement_2up_expectations() {
 fn test_placement_4up_expectations() {
     // 8 pages = 1 complete sheet pair (4-up needs 2×2 grid = 4 pages per side, so 8 total)
     let ordering = calculate_saddle_stitch_order(8, 4);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "4-up with 8 pages: 1 sheet pair = 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "4-up with 8 pages: 1 sheet pair = 2 sides");
     assert_eq!(ordering[0].len(), 4, "Front has 4 pages (2×2 grid)");
     assert_eq!(ordering[1].len(), 4, "Back has 4 pages (2×2 grid)");
 
     // Zigzag placement: pairs 0,2 on front; pairs 1,3 on back (left-to-right)
     assert_eq!(ordering[0], vec![8, 1, 6, 3], "Front: pairs 0 and 2");
-    assert_eq!(
-        ordering[1],
-        vec![2, 7, 4, 5],
-        "Back: pairs 1 and 3 (left-to-right)"
-    );
+    assert_eq!(ordering[1], vec![2, 7, 4, 5], "Back: pairs 1 and 3 (left-to-right)");
 
     // 16 pages = 2 sheets, pairs 0-7
     // Sheet 1: pairs 0,1,2,3 (zigzag)
@@ -482,11 +446,7 @@ fn test_placement_4up_expectations() {
 fn test_placement_8up_expectations() {
     // 16 pages = 1 complete sheet pair (8-up needs 2×4 grid = 8 pages per side, so 16 total)
     let ordering = calculate_saddle_stitch_order(16, 8);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "8-up with 16 pages: 1 sheet pair = 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "8-up with 16 pages: 1 sheet pair = 2 sides");
     assert_eq!(ordering[0].len(), 8, "Front has 8 pages (2×4 grid)");
     assert_eq!(ordering[1].len(), 8, "Back has 8 pages (2×4 grid)");
 
@@ -503,26 +463,10 @@ fn test_placement_8up_expectations() {
     let back = &ordering[1];
     // After pair reversal in row 0: [4,13], [2,15] (pairs reversed)
     // After pair reversal in row 1: [8,9], [6,11]
-    assert_eq!(
-        back[0..2],
-        [4, 13],
-        "Row 0, Col 0 after reversal: Pair from col 2"
-    );
-    assert_eq!(
-        back[2..4],
-        [2, 15],
-        "Row 0, Col 2 after reversal: Pair from col 0"
-    );
-    assert_eq!(
-        back[4..6],
-        [8, 9],
-        "Row 1, Col 0 after reversal: Pair from col 2"
-    );
-    assert_eq!(
-        back[6..8],
-        [6, 11],
-        "Row 1, Col 2 after reversal: Pair from col 0"
-    );
+    assert_eq!(back[0..2], [4, 13], "Row 0, Col 0 after reversal: Pair from col 2");
+    assert_eq!(back[2..4], [2, 15], "Row 0, Col 2 after reversal: Pair from col 0");
+    assert_eq!(back[4..6], [8, 9], "Row 1, Col 0 after reversal: Pair from col 2");
+    assert_eq!(back[6..8], [6, 11], "Row 1, Col 2 after reversal: Pair from col 0");
 }
 
 /// 8-UP WITH 24 PAGES EXPECTATIONS
@@ -540,11 +484,7 @@ fn test_placement_8up_32pages_expectations() {
     // 32 pages = 2 complete sheet pairs (perfect fit for 8-up)
     // So 4 sides total (2 sheets × 2 sides each)
     let ordering = calculate_saddle_stitch_order(32, 8);
-    assert_eq!(
-        ordering.len(),
-        4,
-        "8-up with 32 pages: 2 sheet pairs = 4 sides"
-    );
+    assert_eq!(ordering.len(), 4, "8-up with 32 pages: 2 sheet pairs = 4 sides");
 
     // Check that all pages 1-32 appear exactly once in the output
     let mut all_flattened = Vec::new();
@@ -559,10 +499,7 @@ fn test_placement_8up_32pages_expectations() {
 
     // Should have no blank pages (perfect fit)
     let blank_count = all_flattened.iter().filter(|&&p| p == 0).count();
-    assert_eq!(
-        blank_count, 0,
-        "Should have no blank pages for perfect 32-page fit"
-    );
+    assert_eq!(blank_count, 0, "Should have no blank pages for perfect 32-page fit");
 
     // Total should be 32 pages
     assert_eq!(all_flattened.len(), 32, "Total pages should be 32");
@@ -576,11 +513,7 @@ fn test_placement_8up_4pages_expectations() {
     // produces for this small input.
     let ordering = calculate_saddle_stitch_order(4, 8);
     // Should produce exactly one sheet pair -> 2 sides
-    assert_eq!(
-        ordering.len(),
-        2,
-        "8-up with 4 pages: 1 sheet pair = 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "8-up with 4 pages: 1 sheet pair = 2 sides");
     assert_eq!(ordering[0].len(), 8, "Front has 8 slots (2×4 grid)");
     assert_eq!(ordering[1].len(), 8, "Back has 8 slots (2×4 grid)");
 
@@ -608,17 +541,10 @@ fn test_placement_8up_4pages_expectations() {
 
     // Exactly 12 blank slots (many padding positions remain blank for this tiny input)
     let blank_count = all_flattened.iter().filter(|&&p| p == 0).count();
-    assert_eq!(
-        blank_count, 12,
-        "Should have exactly 12 blank slots for padding to 8"
-    );
+    assert_eq!(blank_count, 12, "Should have exactly 12 blank slots for padding to 8");
 
     // Total slots = 16 (2 sides × 8 slots)
-    assert_eq!(
-        all_flattened.len(),
-        16,
-        "Total slots should be 16 (2 sides × 8)"
-    );
+    assert_eq!(all_flattened.len(), 16, "Total slots should be 16 (2 sides × 8)");
 }
 
 // Additional small-input tests: verify behavior when num_pages < 2 * pages_per_sheet
@@ -628,10 +554,7 @@ fn test_small_input_8up_examples() {
     for &n in &[1usize, 2, 3, 4, 5, 6, 7] {
         let ordering = calculate_saddle_stitch_order(n, 8);
         // Must have at least one side
-        assert!(
-            !ordering.is_empty(),
-            "{n} pages should produce at least 1 side"
-        );
+        assert!(!ordering.is_empty(), "{n} pages should produce at least 1 side");
         // Each side must have 8 slots
         for side in &ordering {
             assert_eq!(side.len(), 8, "Each side must have 8 slots for 8-up");
@@ -659,10 +582,7 @@ fn test_small_input_8up_examples() {
 fn test_small_input_4up_examples() {
     for &n in &[1usize, 2, 3, 5, 6, 7] {
         let ordering = calculate_saddle_stitch_order(n, 4);
-        assert!(
-            !ordering.is_empty(),
-            "{n} pages should produce at least 1 side"
-        );
+        assert!(!ordering.is_empty(), "{n} pages should produce at least 1 side");
         for side in &ordering {
             assert_eq!(side.len(), 4, "Each side must have 4 slots for 4-up");
             for &p in side {
@@ -688,10 +608,7 @@ fn test_small_input_16up_examples() {
     // For 16-up, each side has 16 slots. Test a few small inputs < 32.
     for &n in &[1usize, 2, 3, 4, 8, 15, 16] {
         let ordering = calculate_saddle_stitch_order(n, 16);
-        assert!(
-            !ordering.is_empty(),
-            "{n} pages should produce at least 1 side"
-        );
+        assert!(!ordering.is_empty(), "{n} pages should produce at least 1 side");
         for side in &ordering {
             assert_eq!(side.len(), 16, "Each side must have 16 slots for 16-up");
             for &p in side {
@@ -720,16 +637,8 @@ fn test_4up_with_3_pages() {
     assert_eq!(ordering.len(), 2, "Should have 2 sides (front and back)");
 
     // Expected: front [0, 1, 0, 0], back [2, 3, 0, 0]
-    assert_eq!(
-        ordering[0],
-        vec![0, 1, 0, 0],
-        "Front side should be [0, 1, 0, 0]"
-    );
-    assert_eq!(
-        ordering[1],
-        vec![2, 3, 0, 0],
-        "Back side should be [2, 3, 0, 0]"
-    );
+    assert_eq!(ordering[0], vec![0, 1, 0, 0], "Front side should be [0, 1, 0, 0]");
+    assert_eq!(ordering[1], vec![2, 3, 0, 0], "Back side should be [2, 3, 0, 0]");
 }
 
 #[rstest::rstest]
@@ -746,11 +655,7 @@ fn test_4up_partial_rows() {
 
     // 4-up with 5 pages (1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(5, 4);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "5 pages should produce 2 sides (1 sheet)"
-    );
+    assert_eq!(ordering.len(), 2, "5 pages should produce 2 sides (1 sheet)");
     // Verify all pages appear
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=5 {
@@ -759,11 +664,7 @@ fn test_4up_partial_rows() {
 
     // 4-up with 6 pages (1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(6, 4);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "6 pages should produce 2 sides (1 sheet)"
-    );
+    assert_eq!(ordering.len(), 2, "6 pages should produce 2 sides (1 sheet)");
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=6 {
         assert!(flat.contains(&page), "Page {page} should appear");
@@ -771,11 +672,7 @@ fn test_4up_partial_rows() {
 
     // 4-up with 7 pages (1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(7, 4);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "7 pages should produce 2 sides (1 sheet)"
-    );
+    assert_eq!(ordering.len(), 2, "7 pages should produce 2 sides (1 sheet)");
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=7 {
         assert!(flat.contains(&page), "Page {page} should appear");
@@ -787,21 +684,9 @@ fn golden_4up_5_pages_exact() {
     // Explicit golden test: expect exact front/back arrays for 4-up with 5 pages
     let ordering = calculate_saddle_stitch_order(5, 4);
     // One sheet -> 2 sides
-    assert_eq!(
-        ordering.len(),
-        2,
-        "5 pages on 4-up should produce 1 sheet (2 sides)"
-    );
-    assert_eq!(
-        ordering[0],
-        vec![0, 1, 0, 3],
-        "Expected front side [0,1,0,3]"
-    );
-    assert_eq!(
-        ordering[1],
-        vec![2, 0, 4, 5],
-        "Expected back side [2,0,4,5]"
-    );
+    assert_eq!(ordering.len(), 2, "5 pages on 4-up should produce 1 sheet (2 sides)");
+    assert_eq!(ordering[0], vec![0, 1, 0, 3], "Expected front side [0,1,0,3]");
+    assert_eq!(ordering[1], vec![2, 0, 4, 5], "Expected back side [2,0,4,5]");
 }
 
 #[test]
@@ -833,10 +718,7 @@ fn golden_16up_109_pages_padding_and_grouping() {
     // Ensure every original page appears exactly once
     for page in 1..=num_pages {
         let cnt = flat.iter().filter(|&&p| p == page).count();
-        assert_eq!(
-            cnt, 1,
-            "Page {page} should appear exactly once (found {cnt})"
-        );
+        assert_eq!(cnt, 1, "Page {page} should appear exactly once (found {cnt})");
     }
 }
 
@@ -845,11 +727,7 @@ fn golden_16up_8_pages_exact() {
     // 8 pages on a 16-up layout -> padded and placed; document expected output
     let ordering = calculate_saddle_stitch_order(8, 16);
     // Should produce 2 sides (1 sheet pair)
-    assert_eq!(
-        ordering.len(),
-        2,
-        "8 pages on 16-up should produce 1 sheet (2 sides)"
-    );
+    assert_eq!(ordering.len(), 2, "8 pages on 16-up should produce 1 sheet (2 sides)");
     // For small inputs, after removing complete blank pairs, the algorithm
     // will nest the 8 real pages in the standard outer-inner pattern.
     // Expect front and back to contain the 8 real pages (and blanks)
@@ -864,11 +742,7 @@ fn golden_16up_8_pages_exact() {
 fn golden_16up_16_pages_exact() {
     // 16 real pages on a 16-up layout: single sheet, should place pages 1..16 exactly
     let ordering = calculate_saddle_stitch_order(16, 16);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "16 pages on 16-up should produce 1 sheet (2 sides)"
-    );
+    assert_eq!(ordering.len(), 2, "16 pages on 16-up should produce 1 sheet (2 sides)");
     // Each side must have 16 slots
     assert_eq!(ordering[0].len(), 16);
     assert_eq!(ordering[1].len(), 16);
@@ -877,10 +751,7 @@ fn golden_16up_16_pages_exact() {
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=16 {
         let cnt = flat.iter().filter(|&&p| p == page).count();
-        assert_eq!(
-            cnt, 1,
-            "Page {page} should appear exactly once in 16-up 16 pages"
-        );
+        assert_eq!(cnt, 1, "Page {page} should appear exactly once in 16-up 16 pages");
     }
 }
 
@@ -890,19 +761,13 @@ fn test_8up_partial_rows() {
 
     // 8-up with 1 page
     let ordering = calculate_saddle_stitch_order(1, 8);
-    assert!(
-        !ordering.is_empty(),
-        "1 page should produce at least 1 side"
-    );
+    assert!(!ordering.is_empty(), "1 page should produce at least 1 side");
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     assert!(flat.contains(&1), "Page 1 should appear");
 
     // 8-up with 5 pages
     let ordering = calculate_saddle_stitch_order(5, 8);
-    assert!(
-        !ordering.is_empty(),
-        "5 pages should produce at least 1 side"
-    );
+    assert!(!ordering.is_empty(), "5 pages should produce at least 1 side");
     for side in &ordering {
         assert_eq!(side.len(), 8, "Each side must have 8 slots");
     }
@@ -913,10 +778,7 @@ fn test_8up_partial_rows() {
 
     // 8-up with 9 pages (requires second sheet)
     let ordering = calculate_saddle_stitch_order(9, 8);
-    assert!(
-        ordering.len() >= 2,
-        "9 pages should produce at least 2 sides"
-    );
+    assert!(ordering.len() >= 2, "9 pages should produce at least 2 sides");
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=9 {
         assert!(flat.contains(&page), "Page {page} should appear");
@@ -944,22 +806,14 @@ fn test_32up_and_64up() {
 
     // 32-up with 32 pages (1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(32, 32);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "32 pages with 32-up should produce 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "32 pages with 32-up should produce 2 sides");
     for side in &ordering {
         assert_eq!(side.len(), 32, "Each side must have 32 slots for 32-up");
     }
 
     // 64-up with 128 pages (1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(128, 64);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "128 pages with 64-up should produce 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "128 pages with 64-up should produce 2 sides");
     for side in &ordering {
         assert_eq!(side.len(), 64, "Each side must have 64 slots for 64-up");
     }
@@ -970,11 +824,7 @@ fn test_32up_and_64up() {
 
     // 32-up with 10 pages (partial, 1 sheet = 2 sides)
     let ordering = calculate_saddle_stitch_order(10, 32);
-    assert_eq!(
-        ordering.len(),
-        2,
-        "10 pages with 32-up should produce 2 sides"
-    );
+    assert_eq!(ordering.len(), 2, "10 pages with 32-up should produce 2 sides");
     let flat: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
     for page in 1..=10 {
         assert!(flat.contains(&page), "Page {page} should appear");
@@ -1088,11 +938,7 @@ fn test_blank_pages_only_at_end(#[case] num_pages: usize, #[case] pages_per_shee
 #[case(16, 4, 2)] // 16 pages, 4-up = 2 sheets (4 sides)
 #[case(12, 4, 2)] // 12 pages, 4-up = 2 sheets (4 sides, with padding)
 #[case(32, 8, 2)] // 32 pages, 8-up = 2 sheets (4 sides)
-fn test_correct_sheet_count(
-    #[case] num_pages: usize,
-    #[case] pages_per_sheet: usize,
-    #[case] expected_sheets: usize,
-) {
+fn test_correct_sheet_count(#[case] num_pages: usize, #[case] pages_per_sheet: usize, #[case] expected_sheets: usize) {
     // Property test: verify total sheets = ceil(num_pages / pages_per_sheet) / 2
     let ordering = calculate_saddle_stitch_order(num_pages, pages_per_sheet);
     let actual_sheets = ordering.len() / 2;

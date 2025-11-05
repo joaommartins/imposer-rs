@@ -71,8 +71,7 @@ pub fn calculate_perfect_bound_order(
     let physical_sheets_per_printing_sheet = (grid_rows * grid_cols) / 2;
 
     // Calculate printing sheets per signature needed to achieve the requested physical sheets
-    let printing_sheets_per_signature =
-        sheets_per_signature.div_ceil(physical_sheets_per_printing_sheet);
+    let printing_sheets_per_signature = sheets_per_signature.div_ceil(physical_sheets_per_printing_sheet);
 
     // Calculate pages per signature (pages_per_sheet × 2 for front/back × printing sheets in signature)
     let pages_per_signature = pages_per_sheet * 2 * printing_sheets_per_signature;
@@ -89,8 +88,7 @@ pub fn calculate_perfect_bound_order(
         let signature_page_count = signature_end - signature_start + 1;
 
         // Apply saddle stitch to this signature's page range
-        let signature_ordering =
-            calculate_saddle_stitch_order(signature_page_count, pages_per_sheet);
+        let signature_ordering = calculate_saddle_stitch_order(signature_page_count, pages_per_sheet);
 
         // Remap page numbers from signature-local (1, 2, 3...) to global page numbers
         let remapped_ordering: Vec<Vec<usize>> = signature_ordering
@@ -155,11 +153,7 @@ pub fn calculate_perfect_bound_order_with_signature_count(
     pages_per_sheet: usize,
     num_signatures: usize,
 ) -> Vec<Vec<usize>> {
-    if pages_per_sheet < 2
-        || !pages_per_sheet.is_power_of_two()
-        || num_signatures < 1
-        || num_pages == 0
-    {
+    if pages_per_sheet < 2 || !pages_per_sheet.is_power_of_two() || num_signatures < 1 || num_pages == 0 {
         return Vec::new();
     }
 
@@ -181,11 +175,7 @@ pub fn calculate_perfect_bound_order_with_signature_count(
         let offset = i.div_ceil(2);
         let is_left = i % 2 == 0;
 
-        let idx = if is_left {
-            centre - offset
-        } else {
-            centre + offset
-        };
+        let idx = if is_left { centre - offset } else { centre + offset };
 
         // Ensure index is within bounds
         if idx < num_signatures {

@@ -100,11 +100,7 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
 
         // Convert to actual page numbers (0 for blank pages beyond num_pages)
         let left = if left_page <= num_pages { left_page } else { 0 };
-        let right = if right_page <= num_pages {
-            right_page
-        } else {
-            0
-        };
+        let right = if right_page <= num_pages { right_page } else { 0 };
 
         page_pairs.push((left, right));
     }
@@ -143,16 +139,10 @@ pub fn calculate_saddle_stitch_order(num_pages: usize, pages_per_sheet: usize) -
                     // Odd positions (1, 3, 5, ...) go on back
                     // Within each row: right-to-left
                     // For 8-up and higher (n > 4), reverse row order on back
-                    let should_reverse_rows = pages_per_sheet > 4
-                        && pairs_per_row == 1
-                        && page_pairs.len() >= pairs_per_row * 2 * grid_rows;
-                    let back_row = if should_reverse_rows {
-                        grid_rows - 1 - row
-                    } else {
-                        row
-                    };
-                    let back_base =
-                        back_row * grid_cols + (pairs_per_row - 1 - back_pairs_in_row) * 2;
+                    let should_reverse_rows =
+                        pages_per_sheet > 4 && pairs_per_row == 1 && page_pairs.len() >= pairs_per_row * 2 * grid_rows;
+                    let back_row = if should_reverse_rows { grid_rows - 1 - row } else { row };
+                    let back_base = back_row * grid_cols + (pairs_per_row - 1 - back_pairs_in_row) * 2;
                     back_pages[back_base] = left;
                     back_pages[back_base + 1] = right;
                     back_pairs_in_row += 1;

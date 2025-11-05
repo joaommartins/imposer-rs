@@ -7,9 +7,7 @@ mod perfect_bound;
 pub mod saddle_stitch;
 
 // Re-export for internal use
-use perfect_bound::{
-    calculate_perfect_bound_order, calculate_perfect_bound_order_with_signature_count,
-};
+use perfect_bound::{calculate_perfect_bound_order, calculate_perfect_bound_order_with_signature_count};
 use saddle_stitch::calculate_saddle_stitch_order;
 
 /// Calculate the page ordering for an n-up booklet
@@ -43,9 +41,7 @@ pub fn calculate_page_order(
 ) -> Vec<Vec<usize>> {
     match binding_type {
         BindingType::SaddleStitch => calculate_saddle_stitch_order(num_pages, pages_per_sheet),
-        BindingType::PerfectBound => {
-            calculate_perfect_bound_order(num_pages, pages_per_sheet, sheets_per_signature)
-        }
+        BindingType::PerfectBound => calculate_perfect_bound_order(num_pages, pages_per_sheet, sheets_per_signature),
     }
 }
 

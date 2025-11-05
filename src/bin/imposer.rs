@@ -84,8 +84,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = Vec::new();
     let _ = f.read_to_end(&mut buf)?;
 
-    let page_size = PageSize::from_str(&args.page_size)
-        .ok_or_else(|| format!("Invalid page size: {}", args.page_size))?;
+    let page_size =
+        PageSize::from_str(&args.page_size).ok_or_else(|| format!("Invalid page size: {}", args.page_size))?;
 
     let binding_type = if args.perfect_binding {
         BindingType::PerfectBound
@@ -94,9 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Validate pages_per_sheet for saddle stitch binding
-    if binding_type == BindingType::SaddleStitch
-        && SaddleStitchPages::from_usize(args.pages_per_sheet).is_none()
-    {
+    if binding_type == BindingType::SaddleStitch && SaddleStitchPages::from_usize(args.pages_per_sheet).is_none() {
         return Err(format!(
             "Invalid pages per sheet: {}. For saddle stitch binding, must be one of: {}",
             args.pages_per_sheet,
@@ -124,11 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.pages_per_sheet,
         args.output.display(),
         args.page_size,
-        if args.draw_guides {
-            " with guide lines"
-        } else {
-            ""
-        }
+        if args.draw_guides { " with guide lines" } else { "" }
     );
     Ok(())
 }

@@ -112,11 +112,7 @@ mod tests {
 
         for pages in powers_of_2 {
             let (rows, cols) = calculate_saddle_stitch_grid(pages);
-            assert_eq!(
-                rows * cols,
-                pages,
-                "Grid {rows}×{cols} should produce {pages} pages"
-            );
+            assert_eq!(rows * cols, pages, "Grid {rows}×{cols} should produce {pages} pages");
         }
     }
 
@@ -141,10 +137,7 @@ mod tests {
             let (rows, cols) = calculate_saddle_stitch_grid(pages);
 
             if is_square {
-                assert_eq!(
-                    rows, cols,
-                    "Grid for {pages} pages should be square, got {rows}×{cols}"
-                );
+                assert_eq!(rows, cols, "Grid for {pages} pages should be square, got {rows}×{cols}");
             } else {
                 assert!(
                     cols >= rows,

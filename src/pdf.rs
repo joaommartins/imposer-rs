@@ -1,10 +1,11 @@
-use crate::config::{BookletConfig, Dimensions, GridLayout, ImpositionLayout, Scale, SheetPages};
-use crate::error::{BookletError, Result};
-use crate::imposition::{calculate_page_order, calculate_page_order_with_signatures};
 use lopdf::{
     content::{Content, Operation},
     {Dictionary, Document, Object, ObjectId, Stream},
 };
+
+use crate::config::{BookletConfig, Dimensions, GridLayout, ImpositionLayout, Scale, SheetPages};
+use crate::error::{BookletError, Result};
+use crate::imposition::{calculate_page_order, calculate_page_order_with_signatures};
 
 /// Calculate the grid layout (rows, cols) for n-up imposition
 ///
@@ -175,12 +176,8 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     catalog.set("Type", Object::Name(b"Catalog".to_vec()));
     catalog.set("Pages", Object::Reference(pages_id));
 
-    let _ = output_doc
-        .objects
-        .insert(catalog_id, Object::Dictionary(catalog));
-    output_doc
-        .trailer
-        .set("Root", Object::Reference(catalog_id));
+    let _ = output_doc.objects.insert(catalog_id, Object::Dictionary(catalog));
+    output_doc.trailer.set("Root", Object::Reference(catalog_id));
 
     // Build each imposed page
     let mut page_refs = Vec::new();
@@ -214,17 +211,10 @@ pub fn generate_booklet_with_config(input_pdf: &[u8], config: &BookletConfig) ->
     );
     pages_dict.set(
         "MediaBox",
-        Object::Array(vec![
-            0.into(),
-            0.into(),
-            output_width.into(),
-            output_height.into(),
-        ]),
+        Object::Array(vec![0.into(), 0.into(), output_width.into(), output_height.into()]),
     );
 
-    let _ = output_doc
-        .objects
-        .insert(pages_id, Object::Dictionary(pages_dict));
+    let _ = output_doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
 
     // Save to bytes
     let mut output = Vec::new();
@@ -254,9 +244,7 @@ fn get_page_dimensions(doc: &Document, page_id: ObjectId) -> Result<(f32, f32)> 
         .map_err(|e| BookletError::ParseError(format!("Invalid MediaBox: {e}")))?;
 
     if media_box.len() < 4 {
-        return Err(BookletError::ParseError(
-            "MediaBox has fewer than 4 values".to_string(),
-        ));
+        return Err(BookletError::ParseError("MediaBox has fewer than 4 values".to_string()));
     }
 
     let x1 = media_box[0].as_float().unwrap_or(0.0);
@@ -340,9 +328,7 @@ fn create_imposed_page_nup(
 
                 // Draw the page number in the center
                 let page_num_str = format!("{page_num}");
-                let font_size = (layout.slot.height / 3.0)
-                    .min(layout.slot.width / 2.0)
-                    .min(144.0);
+                let font_size = (layout.slot.height / 3.0).min(layout.slot.width / 2.0).min(144.0);
 
                 // Estimate text width (rough approximation: 0.6 * font_size per digit for bold font)
                 let str_len_u32 = u32::try_from(page_num_str.len()).unwrap_or(0);
@@ -357,10 +343,7 @@ fn create_imposed_page_nup(
                 operations.push(Operation::new("Td", vec![text_x.into(), text_y.into()]));
                 operations.push(Operation::new(
                     "Tj",
-                    vec![Object::String(
-                        page_num_str.into_bytes(),
-                        lopdf::StringFormat::Literal,
-                    )],
+                    vec![Object::String(page_num_str.into_bytes(), lopdf::StringFormat::Literal)],
                 ));
                 operations.push(Operation::new("ET", vec![])); // End text
             } else {
@@ -398,10 +381,7 @@ fn create_imposed_page_nup(
                         ],
                     ));
 
-                    operations.push(Operation::new(
-                        "Do",
-                        vec![Object::Name(page_name.as_bytes().to_vec())],
-                    ));
+                    operations.push(Operation::new("Do", vec![Object::Name(page_name.as_bytes().to_vec())]));
                 }
             }
 
@@ -414,10 +394,7 @@ fn create_imposed_page_nup(
         // Set thin line width and gray color for guides
         operations.push(Operation::new("q", vec![])); // Save graphics state
         operations.push(Operation::new("w", vec![0.5.into()])); // Line width 0.5 points
-        operations.push(Operation::new(
-            "RG",
-            vec![0.5.into(), 0.5.into(), 0.5.into()],
-        )); // Gray stroke color
+        operations.push(Operation::new("RG", vec![0.5.into(), 0.5.into(), 0.5.into()])); // Gray stroke color
 
         // Draw vertical fold lines between columns
         for col in 1..layout.grid.cols {
@@ -425,10 +402,7 @@ fn create_imposed_page_nup(
             #[expect(clippy::cast_precision_loss)]
             let x = layout.slot.width * (col_u32 as f32);
             operations.push(Operation::new("m", vec![x.into(), 0.into()]));
-            operations.push(Operation::new(
-                "l",
-                vec![x.into(), layout.output.height.into()],
-            ));
+            operations.push(Operation::new("l", vec![x.into(), layout.output.height.into()]));
         }
 
         // Draw horizontal fold lines between rows
@@ -437,41 +411,26 @@ fn create_imposed_page_nup(
             #[expect(clippy::cast_precision_loss)]
             let y = layout.slot.height * (row_u32 as f32);
             operations.push(Operation::new("m", vec![0.into(), y.into()]));
-            operations.push(Operation::new(
-                "l",
-                vec![layout.output.width.into(), y.into()],
-            ));
+            operations.push(Operation::new("l", vec![layout.output.width.into(), y.into()]));
         }
 
         operations.push(Operation::new("S", vec![])); // Stroke all fold lines
 
         // Draw cut lines at edges (solid lines)
         // Top edge
-        operations.push(Operation::new(
-            "m",
-            vec![0.into(), layout.output.height.into()],
-        ));
+        operations.push(Operation::new("m", vec![0.into(), layout.output.height.into()]));
         operations.push(Operation::new(
             "l",
             vec![layout.output.width.into(), layout.output.height.into()],
         ));
         // Bottom edge
         operations.push(Operation::new("m", vec![0.into(), 0.into()]));
-        operations.push(Operation::new(
-            "l",
-            vec![layout.output.width.into(), 0.into()],
-        ));
+        operations.push(Operation::new("l", vec![layout.output.width.into(), 0.into()]));
         // Left edge
         operations.push(Operation::new("m", vec![0.into(), 0.into()]));
-        operations.push(Operation::new(
-            "l",
-            vec![0.into(), layout.output.height.into()],
-        ));
+        operations.push(Operation::new("l", vec![0.into(), layout.output.height.into()]));
         // Right edge
-        operations.push(Operation::new(
-            "m",
-            vec![layout.output.width.into(), 0.into()],
-        ));
+        operations.push(Operation::new("m", vec![layout.output.width.into(), 0.into()]));
         operations.push(Operation::new(
             "l",
             vec![layout.output.width.into(), layout.output.height.into()],
@@ -555,22 +514,18 @@ fn create_form_xobject(
     // Get the content stream data (decompressed)
     let content_data = match contents {
         Object::Reference(ref_id) => {
-            let content_obj = source_doc.get_object(*ref_id).map_err(|e| {
-                BookletError::ParseError(format!("Failed to get content object: {e}"))
-            })?;
+            let content_obj = source_doc
+                .get_object(*ref_id)
+                .map_err(|e| BookletError::ParseError(format!("Failed to get content object: {e}")))?;
 
             match content_obj {
                 Object::Stream(stream) => {
                     // Decompress the stream to get the actual content
-                    stream.decompressed_content().map_err(|e| {
-                        BookletError::ParseError(format!("Failed to decompress content: {e}"))
-                    })?
+                    stream
+                        .decompressed_content()
+                        .map_err(|e| BookletError::ParseError(format!("Failed to decompress content: {e}")))?
                 }
-                _ => {
-                    return Err(BookletError::ParseError(
-                        "Content is not a stream".to_string(),
-                    ))
-                }
+                _ => return Err(BookletError::ParseError("Content is not a stream".to_string())),
             }
         }
         Object::Array(refs) => {
@@ -587,11 +542,7 @@ fn create_form_xobject(
             }
             combined
         }
-        _ => {
-            return Err(BookletError::ParseError(
-                "Unexpected content type".to_string(),
-            ))
-        }
+        _ => return Err(BookletError::ParseError("Unexpected content type".to_string())),
     };
 
     // Copy resources if they exist

@@ -28,8 +28,8 @@ impl PageSize {
             PageSize::A3 => (842.0, 1191.0), // 297 × 420 mm
             PageSize::A5 => (420.0, 595.0),  // 148 × 210 mm
             // US paper sizes (in points, 1 inch = 72 points)
-            PageSize::Letter => (612.0, 792.0), // 8.5 × 11 inches
-            PageSize::Legal => (612.0, 1008.0), // 8.5 × 14 inches
+            PageSize::Letter => (612.0, 792.0),   // 8.5 × 11 inches
+            PageSize::Legal => (612.0, 1008.0),   // 8.5 × 14 inches
             PageSize::Tabloid => (792.0, 1224.0), // 11 × 17 inches
             PageSize::Custom(width, height) => (*width, *height),
         }
@@ -175,47 +175,20 @@ mod tests {
     #[test]
     fn test_saddle_stitch_pages_from_usize_common_values() {
         // Test the common predefined variants
-        assert_eq!(
-            SaddleStitchPages::from_usize(2),
-            Some(SaddleStitchPages::Pages2)
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(4),
-            Some(SaddleStitchPages::Pages4)
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(8),
-            Some(SaddleStitchPages::Pages8)
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(16),
-            Some(SaddleStitchPages::Pages16)
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(32),
-            Some(SaddleStitchPages::Pages32)
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(64),
-            Some(SaddleStitchPages::Pages64)
-        );
+        assert_eq!(SaddleStitchPages::from_usize(2), Some(SaddleStitchPages::Pages2));
+        assert_eq!(SaddleStitchPages::from_usize(4), Some(SaddleStitchPages::Pages4));
+        assert_eq!(SaddleStitchPages::from_usize(8), Some(SaddleStitchPages::Pages8));
+        assert_eq!(SaddleStitchPages::from_usize(16), Some(SaddleStitchPages::Pages16));
+        assert_eq!(SaddleStitchPages::from_usize(32), Some(SaddleStitchPages::Pages32));
+        assert_eq!(SaddleStitchPages::from_usize(64), Some(SaddleStitchPages::Pages64));
     }
 
     #[test]
     fn test_saddle_stitch_pages_from_usize_large_powers_of_two() {
         // Test that larger powers of 2 are also accepted
-        assert_eq!(
-            SaddleStitchPages::from_usize(128),
-            Some(SaddleStitchPages::Other(128))
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(256),
-            Some(SaddleStitchPages::Other(256))
-        );
-        assert_eq!(
-            SaddleStitchPages::from_usize(512),
-            Some(SaddleStitchPages::Other(512))
-        );
+        assert_eq!(SaddleStitchPages::from_usize(128), Some(SaddleStitchPages::Other(128)));
+        assert_eq!(SaddleStitchPages::from_usize(256), Some(SaddleStitchPages::Other(256)));
+        assert_eq!(SaddleStitchPages::from_usize(512), Some(SaddleStitchPages::Other(512)));
         assert_eq!(
             SaddleStitchPages::from_usize(1024),
             Some(SaddleStitchPages::Other(1024))
@@ -479,13 +452,7 @@ pub struct ImpositionLayout {
 impl ImpositionLayout {
     /// Create new imposition layout parameters
     #[must_use]
-    pub fn new(
-        grid: GridLayout,
-        slot: Dimensions,
-        output: Dimensions,
-        source: Dimensions,
-        scale: Scale,
-    ) -> Self {
+    pub fn new(grid: GridLayout, slot: Dimensions, output: Dimensions, source: Dimensions, scale: Scale) -> Self {
         Self {
             grid,
             slot,
@@ -509,9 +476,6 @@ impl<'a> SheetPages<'a> {
     /// Create a new sheet pages reference
     #[must_use]
     pub fn new(all_pages: &'a [(u32, lopdf::ObjectId)], page_nums: &'a [usize]) -> Self {
-        Self {
-            all_pages,
-            page_nums,
-        }
+        Self { all_pages, page_nums }
     }
 }

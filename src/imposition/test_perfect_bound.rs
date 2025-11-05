@@ -12,11 +12,7 @@ fn test_perfect_bound_4_pages_2up_single_signature() {
     // Perfect bound uses saddle stitch ordering for each signature
     let ordering = calculate_perfect_bound_order(4, 2, 1);
     assert_eq!(ordering.len(), 2, "Should have 2 sides (1 sheet)");
-    assert_eq!(
-        ordering[0],
-        vec![4, 1],
-        "Front: outer pages (saddle stitch order)"
-    );
+    assert_eq!(ordering[0], vec![4, 1], "Front: outer pages (saddle stitch order)");
     assert_eq!(ordering[1], vec![2, 3], "Back: inner pages");
 }
 
@@ -59,24 +55,12 @@ fn test_perfect_bound_16_pages_4up_two_signatures() {
     // Signature 1 (pages 1-8): [8,1,6,3] / [2,7,4,5]
     // Signature 2 (pages 9-16): [16,9,14,11] / [10,15,12,13]
     let ordering = calculate_perfect_bound_order(16, 4, 1);
-    assert_eq!(
-        ordering.len(),
-        4,
-        "Should have 4 sides (2 signatures × 1 sheet each)"
-    );
+    assert_eq!(ordering.len(), 4, "Should have 4 sides (2 signatures × 1 sheet each)");
 
     assert_eq!(ordering[0], vec![8, 1, 6, 3], "Signature 1, sheet 1 front");
     assert_eq!(ordering[1], vec![2, 7, 4, 5], "Signature 1, sheet 1 back");
-    assert_eq!(
-        ordering[2],
-        vec![16, 9, 14, 11],
-        "Signature 2, sheet 1 front"
-    );
-    assert_eq!(
-        ordering[3],
-        vec![10, 15, 12, 13],
-        "Signature 2, sheet 1 back"
-    );
+    assert_eq!(ordering[2], vec![16, 9, 14, 11], "Signature 2, sheet 1 front");
+    assert_eq!(ordering[3], vec![10, 15, 12, 13], "Signature 2, sheet 1 back");
 }
 
 #[test]
@@ -314,11 +298,7 @@ fn test_perfect_bound_zero_pages() {
 #[test]
 fn test_perfect_bound_zero_pages_per_sheet() {
     let ordering = calculate_perfect_bound_order(8, 0, 1);
-    assert_eq!(
-        ordering.len(),
-        0,
-        "Zero pages per sheet should produce no output"
-    );
+    assert_eq!(ordering.len(), 0, "Zero pages per sheet should produce no output");
 }
 
 #[test]
@@ -391,14 +371,8 @@ fn test_perfect_bound_consistency_with_different_signatures() {
         .filter(|&p| p > 0)
         .collect();
 
-    assert_eq!(
-        flat1, flat2,
-        "Different signature sizes should contain same pages"
-    );
-    assert_eq!(
-        flat1, flat4,
-        "Different signature sizes should contain same pages"
-    );
+    assert_eq!(flat1, flat2, "Different signature sizes should contain same pages");
+    assert_eq!(flat1, flat4, "Different signature sizes should contain same pages");
 }
 
 // ===== 16-up Tests =====
@@ -578,11 +552,7 @@ fn test_perfect_bound_with_signature_count_edge_cases() {
 
     // Zero signatures
     let ordering = calculate_perfect_bound_order_with_signature_count(10, 2, 0);
-    assert_eq!(
-        ordering.len(),
-        0,
-        "Zero signatures should produce no output"
-    );
+    assert_eq!(ordering.len(), 0, "Zero signatures should produce no output");
 
     // Invalid pages_per_sheet
     let ordering = calculate_perfect_bound_order_with_signature_count(10, 3, 1);
@@ -678,11 +648,7 @@ fn test_perfect_bound_109_pages_2up_2sheets_per_signature() {
     // Check the last few pages follow the pattern
 
     // Total sides should be: 13 * 8 / 2 + 4 = 52 + 4 = 56 sides (14 signatures × 4 sides each)
-    assert_eq!(
-        ordering.len(),
-        56,
-        "Should have 56 sides (14 signatures × 4 sides)"
-    );
+    assert_eq!(ordering.len(), 56, "Should have 56 sides (14 signatures × 4 sides)");
 
     // The last signature (pages 105-109, padded to 8) should be in the last 4 sides
     // Last 4 sides should contain pages 105-109 with blanks filling in
@@ -747,11 +713,7 @@ fn test_perfect_bound_109_pages_2up_2sheets_detailed_ordering() {
     // Count occurrences of each page 105-109
     for page in 105..=109 {
         let count = last_sig_pages.iter().filter(|&&p| p == page).count();
-        assert_eq!(
-            count, 1,
-            "Page {} should appear exactly once in last signature",
-            page
-        );
+        assert_eq!(count, 1, "Page {} should appear exactly once in last signature", page);
     }
 
     // Verify we have exactly 5 real pages and 3 blanks in last signature
@@ -804,26 +766,10 @@ fn test_perfect_bound_109_pages_2up_2sheets_sheet_structure() {
     // When remapped to pages 105-109 within last signature:
     // [0,105], [106,0], [0,107], [108,109]
 
-    assert_eq!(
-        last_sheet1_front,
-        &vec![0, 105],
-        "Sheet 1 front should be [0, 105]"
-    );
-    assert_eq!(
-        last_sheet1_back,
-        &vec![106, 0],
-        "Sheet 1 back should be [106, 0]"
-    );
-    assert_eq!(
-        last_sheet2_front,
-        &vec![0, 107],
-        "Sheet 2 front should be [0, 107]"
-    );
-    assert_eq!(
-        last_sheet2_back,
-        &vec![108, 109],
-        "Sheet 2 back should be [108, 109]"
-    );
+    assert_eq!(last_sheet1_front, &vec![0, 105], "Sheet 1 front should be [0, 105]");
+    assert_eq!(last_sheet1_back, &vec![106, 0], "Sheet 1 back should be [106, 0]");
+    assert_eq!(last_sheet2_front, &vec![0, 107], "Sheet 2 front should be [0, 107]");
+    assert_eq!(last_sheet2_back, &vec![108, 109], "Sheet 2 back should be [108, 109]");
 
     // All pages 105-109 should appear exactly once across these 4 sides
     let all_pages: Vec<usize> = vec![

@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use crate::config::BindingType;
     use crate::imposition::calculate_page_order;
-    use rstest::rstest;
 
     #[test]
     fn test_page_ordering_4_pages_2up() {
@@ -16,10 +17,7 @@ mod tests {
         let ordering = calculate_page_order(8, 2, BindingType::SaddleStitch, 1);
         // Sheet 1 front: [8, 1], back: [2, 7]
         // Sheet 2 front: [6, 3], back: [4, 5]
-        assert_eq!(
-            ordering,
-            vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]
-        );
+        assert_eq!(ordering, vec![vec![8, 1], vec![2, 7], vec![6, 3], vec![4, 5]]);
     }
 
     #[test]
@@ -61,10 +59,7 @@ mod tests {
     fn test_perfect_bound_8_pages_2up() {
         let ordering = calculate_page_order(8, 2, BindingType::PerfectBound, 1);
         // Perfect bound with 1 sheet/signature: 2 signatures using saddle stitch ordering
-        assert_eq!(
-            ordering,
-            vec![vec![4, 1], vec![2, 3], vec![8, 5], vec![6, 7]]
-        );
+        assert_eq!(ordering, vec![vec![4, 1], vec![2, 3], vec![8, 5], vec![6, 7]]);
     }
 
     #[test]
@@ -87,12 +82,8 @@ mod tests {
     #[case(7, 4)] // 7 pages, 4-up
     #[case(15, 4)] // 15 pages, 4-up
     #[case(111, 8)] // 111 pages, 8-up
-    fn test_no_duplicate_pages_with_odd_input(
-        #[case] num_pages: usize,
-        #[case] pages_per_sheet: usize,
-    ) {
-        let ordering =
-            calculate_page_order(num_pages, pages_per_sheet, BindingType::SaddleStitch, 1);
+    fn test_no_duplicate_pages_with_odd_input(#[case] num_pages: usize, #[case] pages_per_sheet: usize) {
+        let ordering = calculate_page_order(num_pages, pages_per_sheet, BindingType::SaddleStitch, 1);
         let flattened: Vec<usize> = ordering.iter().flat_map(|s| s.iter().copied()).collect();
 
         // Check that no page (except blank 0) appears more than once
