@@ -69,3 +69,21 @@ jobs:
         with:
           title: v${{ needs.check-version.outputs.current_version }}
           tag: v${{ needs.check-version.outputs.current_version }}
+
+  push-to-crates-io:
+    needs:
+      - create-release
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
