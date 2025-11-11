@@ -23,6 +23,8 @@ mod error;
 /// Page ordering and booklet imposition algorithms
 pub mod imposition;
 mod pdf;
+#[cfg(feature = "python")]
+pub mod python;
 
 // Re-export public API
 pub use config::{BindingType, BookletConfig, PageSize, SaddleStitchPages};
