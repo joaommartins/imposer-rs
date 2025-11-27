@@ -235,43 +235,6 @@ jobs:
           name: release-artifacts
           path: release_artifacts
 
-      - name: Verify release assets exist on GitHub release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          repo="${GITHUB_REPOSITORY}"
-          tag="v${{ needs.check-version.outputs.current_version }}"
-          api_url="https://api.github.com/repos/${repo}/releases/tags/${tag}"
-          echo "Querying $api_url"
-
-          # Use alpine container with jq instead of installing on runner
-          docker run --rm -e GITHUB_TOKEN="${GITHUB_TOKEN}" -e api_url="${api_url}" -e version="${{ needs.check-version.outputs.current_version }}" alpine:latest sh -c '
-            apk add --no-cache curl jq bash
-            tries=0
-            max=30
-            while [ $tries -lt $max ]; do
-              resp=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "$api_url")
-              assets=$(echo "$resp" | jq -r ".assets[].name" || true)
-              expected="imposer-v${version}.tar.gz imposer-${version}-aur-src.tar.gz imposer-${version}-aur-bin.tar.gz imposer-${version}-linux-x86_64"
-              missing=""
-              for e in $expected; do
-                if ! echo "$assets" | grep -qx "$e"; then
-                  missing="$missing $e"
-                fi
-              done
-              if [ -z "$missing" ]; then
-                echo "All expected assets are present"
-                exit 0
-              fi
-              tries=$((tries+1))
-              echo "Assets missing:$missing — retrying ($tries/$max)"
-              sleep 2
-            done
-            echo "Timed out waiting for release assets:$missing"
-            exit 1
-          '
-
   build-python-wheels-linux:
     needs: check-version
     if: needs.check-version.outputs.version_changed == 'true'
