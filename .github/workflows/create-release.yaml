@@ -326,6 +326,7 @@ jobs:
 
   push-to-aur:
     needs:
+      - check-version
       - create-release
       - build-artifacts
     runs-on: ubuntu-latest
