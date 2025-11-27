@@ -10,6 +10,45 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check-version.outputs.version_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if Cargo.toml version changed
+        id: check-version
+        run: |
+          # Check if this is a PR with a base branch
+          if [ -z "${{ github.base_ref }}" ]; then
+            # Not a PR (manual trigger), check against previous commit
+            if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+              current_version=$(grep '^version =' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+              previous_version=$(git show HEAD~1:Cargo.toml | grep '^version =' | sed 's/version = "\(.*\)"/\1/')
+            else
+              # First commit, assume version changed
+              echo "version_changed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          else
+            # PR - compare against base branch
+            git fetch origin ${{ github.base_ref }}
+            current_version=$(grep '^version =' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+            previous_version=$(git show origin/${{ github.base_ref }}:Cargo.toml | grep '^version =' | sed 's/version = "\(.*\)"/\1/' || echo "")
+          fi
+
+          if [ "$current_version" != "$previous_version" ]; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Version changed: $previous_version → $current_version"
+          else
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+            echo "✗ Version unchanged: $current_version"
+          fi
+
   clippy-fmt-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -78,3 +117,106 @@ jobs:
         run: |
           source .venv/bin/activate
           python scripts/check_bindings_sync.py
+
+  build-release-binary:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Verify binary exists
+        run: |
+          ls -lh target/release/imposer
+          ./target/release/imposer --version
+
+  build-python-wheels-linux:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wheels (manylinux)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+          sccache: 'true'
+          manylinux: auto
+
+      - name: List built wheels
+        run: ls -lh dist/
+
+  build-python-wheels-macos:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wheels (macOS)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+          sccache: 'true'
+
+      - name: List built wheels
+        run: ls -lh dist/
+
+  build-python-wheels-windows:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target: [x64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wheels (Windows)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --features python
+          sccache: 'true'
+
+      - name: List built wheels
+        run: dir dist
+
+  build-python-sdist:
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build source distribution
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+
+      - name: List built sdist
+        run: ls -lh dist/
