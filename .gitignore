@@ -1,3 +1,5 @@
 target/
 .serena/
 *.pdf
+
+**/__pycache__/
