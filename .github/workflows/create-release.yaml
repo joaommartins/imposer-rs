@@ -146,7 +146,7 @@ jobs:
           aur_dir=$(mktemp -d)
           cat > ${aur_dir}/PKGBUILD <<'PKGBUILD'
           pkgname=imposer
-          pkgver=${pkgver}
+          pkgver=REPLACE_VERSION
           pkgrel=1
           pkgdesc="Imposer - PDF imposition tool"
           arch=('x86_64')
@@ -165,7 +165,8 @@ jobs:
           }
           PKGBUILD
 
-          # Replace placeholder checksum with actual
+          # Replace placeholders with actual values
+          sed -i "s/REPLACE_VERSION/${version}/g" ${aur_dir}/PKGBUILD
           sed -i "s/REPLACE_SRC_SUM/${src_sum}/g" ${aur_dir}/PKGBUILD
 
           # Create AUR source tarball that contains PKGBUILD and the upstream source tarball
@@ -179,7 +180,7 @@ jobs:
 
           cat > ${bin_dir}/PKGBUILD <<'PKGBUILD'
           pkgname=imposer-bin
-          pkgver=${pkgver}
+          pkgver=REPLACE_VERSION
           pkgrel=1
           pkgdesc="Imposer (binary package) - PDF imposition tool"
           arch=('x86_64')
@@ -193,6 +194,7 @@ jobs:
           }
           PKGBUILD
 
+          sed -i "s/REPLACE_VERSION/${version}/g" ${bin_dir}/PKGBUILD
           sed -i "s/REPLACE_BIN_SUM/${bin_sum}/g" ${bin_dir}/PKGBUILD
 
           (cd ${bin_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-bin.tar.gz PKGBUILD imposer-${version}-linux-x86_64)
