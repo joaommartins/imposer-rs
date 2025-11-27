@@ -151,13 +151,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Build wheels (manylinux)
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist --features python
           sccache: 'true'
-          manylinux: 2_28
+          manylinux: '2_28'
+          docker-options: -e CI
 
       - name: List built wheels
         run: ls -lh dist/
