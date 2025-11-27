@@ -278,11 +278,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Build wheels (manylinux)
         uses: PyO3/maturin-action@v1
         with:
@@ -387,8 +382,8 @@ jobs:
     needs:
       - create-release
       - build-artifacts
-    if: ${{ secrets.AUR_SSH_KEY != '' }}
     runs-on: ubuntu-latest
+    continue-on-error: true  # Optional: Skip if AUR_SSH_KEY not configured
 
     steps:
       - name: Checkout code
