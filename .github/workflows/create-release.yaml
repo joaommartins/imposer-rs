@@ -81,7 +81,7 @@ jobs:
 
       - name: Create a Release (taiki-e)
         id: create_release
-        uses: taiki-e/create-gh-release-action@v2
+        uses: taiki-e/create-gh-release-action@v1
         with:
           tag_name: v${{ needs.check-version.outputs.current_version }}
           release_name: v${{ needs.check-version.outputs.current_version }}
