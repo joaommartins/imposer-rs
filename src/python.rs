@@ -257,7 +257,7 @@ fn generate_booklet(py: Python<'_>, pdf_bytes: &[u8], config: &PyBookletConfig) 
     let result = crate::generate_booklet_with_config(pdf_bytes, &config.inner)
         .map_err(|e| PyValueError::new_err(format!("Failed to generate booklet: {e}")))?;
 
-    Ok(PyBytes::new_bound(py, &result).into())
+    Ok(PyBytes::new(py, &result).into())
 }
 
 /// Generate a booklet from a PDF file path with the specified configuration
