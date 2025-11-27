@@ -192,7 +192,7 @@ jobs:
 
           # Create AUR source tarball that contains PKGBUILD and the upstream source tarball
           cp "${src_tar}" ${aur_dir}/
-          (cd ${aur_dir} && tar -czf release_artifacts/imposer-${version}-aur-src.tar.gz PKGBUILD imposer-v${version}.tar.gz)
+          (cd ${aur_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-src.tar.gz PKGBUILD imposer-v${version}.tar.gz)
 
           # Also prepare a simple -bin package tarball containing PKGBUILD that installs the provided binary
           bin_dir=$(mktemp -d)
@@ -217,7 +217,7 @@ jobs:
 
           sed -i "s/REPLACE_BIN_SUM/${bin_sum}/g" ${bin_dir}/PKGBUILD
 
-          (cd ${bin_dir} && tar -czf release_artifacts/imposer-${version}-aur-bin.tar.gz PKGBUILD imposer-${version}-linux-x86_64)
+          (cd ${bin_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-bin.tar.gz PKGBUILD imposer-${version}-linux-x86_64)
 
       - name: List release artifacts
         run: |
