@@ -388,7 +388,7 @@ jobs:
       - create-release
       - build-artifacts
     runs-on: ubuntu-latest
-    continue-on-error: true  # Optional: Skip if AUR_SSH_KEY not configured
+    continue-on-error: true
 
     steps:
       - name: Checkout code
