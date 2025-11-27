@@ -61,6 +61,14 @@ impl PyPageSize {
         }
     }
 
+    /// Create a custom page size with given width and height in points (1 point = 1/72 inch)
+    #[staticmethod]
+    fn custom(width: f32, height: f32) -> Self {
+        Self {
+            inner: PageSize::Custom(width, height),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }

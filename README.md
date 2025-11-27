@@ -164,6 +164,53 @@ If you run `imposer -i input.pdf -o output.pdf` with no other options:
 cargo build --release
 ```
 
+## Development
+
+This project uses [cargo-make](https://github.com/sagiegurari/cargo-make) to replicate CI checks locally.
+
+### Install cargo-make
+
+```bash
+cargo install cargo-make
+```
+
+### Run all CI checks
+
+```bash
+cargo make
+```
+
+This runs all checks that CI performs:
+- Code formatting (`cargo fmt --check`)
+- Clippy linting (`cargo clippy`)
+- Rust tests (`cargo nextest run`)
+- Python bindings build and tests
+- Python bindings synchronization check
+
+### Available tasks
+
+- `cargo make` - Run all CI checks (default)
+- `cargo make quick` - Quick checks (format + clippy only)
+- `cargo make rust-only` - Rust checks only (skip Python)
+- `cargo make all-continue` - Run all checks, continue on errors (useful for debugging)
+- `cargo make fmt` - Auto-format code
+- `cargo make clippy-fix` - Auto-fix clippy issues
+- `cargo make test` - Run Rust tests only
+- `cargo make python-test` - Run Python tests only
+- `cargo make --list-all-steps` - List all available tasks
+
+**Note:** The default task stops on first error (matching CI behavior). If you want to run all checks even when some fail, use `cargo make all-continue`.
+
+### Pre-commit workflow
+
+Before committing, ensure all checks pass:
+
+```bash
+cargo make
+```
+
+If `cargo make` passes locally, CI should also pass.
+
 ## Try it
 
 ```bash

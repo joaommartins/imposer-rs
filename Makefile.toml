@@ -1,0 +1,177 @@
+# Makefile.toml - cargo-make configuration
+# Replicates CI workflow steps for local testing
+# Install: cargo install cargo-make
+# Run: cargo make
+# Run specific task: cargo make <task-name>
+
+[config]
+default_to_workspace = false
+
+[env]
+CARGO_TERM_COLOR = "always"
+
+# Override the built-in default task to run our CI checks
+[tasks.default]
+clear = true
+description = "Run all CI checks (format, clippy, tests, python)"
+dependencies = [
+    "fmt-check",
+    "clippy-check",
+    "test",
+    "python-test",
+]
+
+# Run all checks but continue on error (useful for local development)
+[tasks.all-continue]
+description = "Run all CI checks, continue on error"
+script = '''
+#!/usr/bin/env bash
+echo "Running all checks (continuing on errors)..."
+cargo make fmt-check || echo "⚠️  Format check failed"
+cargo make clippy-check || echo "⚠️  Clippy check failed"
+cargo make test || echo "⚠️  Rust tests failed"
+cargo make python-test || echo "⚠️  Python tests failed"
+echo "✅ All tasks completed (check for failures above)"
+'''
+
+# Format check (matches CI rustfmt step)
+[tasks.fmt-check]
+description = "Check code formatting with rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+# Format fix
+[tasks.fmt]
+description = "Format code with rustfmt"
+command = "cargo"
+args = ["fmt", "--all"]
+
+# Clippy check (matches CI clippy step)
+[tasks.clippy-check]
+description = "Run clippy with warnings as errors"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
+
+# Clippy fix - automatically fix some issues
+[tasks.clippy-fix]
+description = "Run clippy with automatic fixes"
+command = "cargo"
+args = ["clippy", "--all-targets", "--all-features", "--fix", "--allow-dirty", "--allow-staged"]
+
+# Run tests with cargo-nextest (matches CI test step)
+[tasks.test]
+description = "Run tests with cargo-nextest"
+install_crate = { crate_name = "cargo-nextest", binary = "cargo", test_arg = ["nextest", "--help"] }
+command = "cargo"
+args = ["nextest", "run"]
+
+# Run standard cargo test as fallback
+[tasks.test-cargo]
+description = "Run tests with cargo test"
+command = "cargo"
+args = ["test"]
+
+# Python bindings workflow
+[tasks.python-test]
+description = "Build and test Python bindings"
+dependencies = [
+    "python-install-deps",
+    "python-build",
+    "python-test-run",
+    "python-check-sync",
+]
+
+[tasks.python-install-deps]
+description = "Install Python dependencies (maturin, pytest, tree-sitter)"
+script = '''
+#!/usr/bin/env bash
+set -e
+echo "Installing Python dependencies..."
+
+# Ensure .venv exists, create if not
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment with uv..."
+    uv venv
+fi
+
+# Install dependencies using uv
+uv pip install --quiet maturin pytest tree-sitter tree-sitter-rust
+'''
+
+[tasks.python-build]
+description = "Build Python bindings with maturin"
+script = '''
+#!/usr/bin/env bash
+set -e
+# Use maturin from venv if available, otherwise from PATH
+if [ -f ".venv/bin/maturin" ]; then
+    .venv/bin/maturin develop --features python
+else
+    maturin develop --features python
+fi
+'''
+
+[tasks.python-test-run]
+description = "Run Python tests with pytest"
+script = '''
+#!/usr/bin/env bash
+set -e
+# Use pytest from venv if available, otherwise from PATH
+if [ -f ".venv/bin/pytest" ]; then
+    .venv/bin/pytest tests/ -v
+else
+    pytest tests/ -v
+fi
+'''
+
+[tasks.python-check-sync]
+description = "Verify Python bindings are in sync with Rust API"
+script = '''
+#!/usr/bin/env bash
+set -e
+echo "Checking Python bindings synchronization..."
+# Use python from venv if available, otherwise from PATH
+if [ -f ".venv/bin/python" ]; then
+    .venv/bin/python scripts/check_bindings_sync.py
+else
+    python3 scripts/check_bindings_sync.py
+fi
+'''
+
+# Build task
+[tasks.build]
+description = "Build the project in debug mode"
+command = "cargo"
+args = ["build"]
+
+[tasks.build-release]
+description = "Build the project in release mode"
+command = "cargo"
+args = ["build", "--release"]
+
+# Check task (fast compile check)
+[tasks.check]
+description = "Run cargo check"
+command = "cargo"
+args = ["check", "--all-targets", "--all-features"]
+
+# Clean task
+[tasks.clean]
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+# CI simulation - all checks in sequence
+[tasks.ci]
+description = "Run complete CI simulation (all checks sequentially)"
+run_task = { name = ["fmt-check", "clippy-check", "test", "python-test"] }
+
+# Quick check - format and clippy only
+[tasks.quick]
+description = "Quick checks (format and clippy only)"
+dependencies = ["fmt-check", "clippy-check"]
+
+# Rust-only checks (skip Python)
+[tasks.rust-only]
+description = "Run Rust checks only (format, clippy, tests)"
+dependencies = ["fmt-check", "clippy-check", "test"]
