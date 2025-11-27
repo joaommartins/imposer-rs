@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'Cargo.toml'
+  workflow_dispatch:
 
 jobs:
   check-version:
@@ -41,7 +42,11 @@ jobs:
       - name: Check if version changed
         id: check-version
         run: |
-          if [ "$current_version" != "$previous_version" ]; then
+          # Always treat as version changed if manually triggered
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger - treating as version changed"
+          elif [ "$current_version" != "$previous_version" ]; then
             echo "version_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "version_changed=false" >> "$GITHUB_OUTPUT"
@@ -383,7 +388,7 @@ jobs:
       - create-release
       - build-artifacts
     runs-on: ubuntu-latest
-    continue-on-error: true  # Optional: Skip if AUR_SSH_KEY not configured
+    continue-on-error: true
 
     steps:
       - name: Checkout code
