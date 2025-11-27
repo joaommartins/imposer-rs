@@ -322,7 +322,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish to crates.io
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || true
 
   push-to-aur:
     needs:
@@ -380,7 +380,7 @@ jobs:
 
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
-          git push origin HEAD:main --force || true
+          git push origin HEAD:master --force || true
 
       - name: Verify AUR packages locally (Arch docker)
         run: |
@@ -415,7 +415,7 @@ jobs:
 
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
-          git push origin HEAD:main --force || true
+          git push origin HEAD:master --force || true
 
   publish-to-pypi:
     needs:
