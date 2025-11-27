@@ -349,9 +349,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur_key
           chmod 600 ~/.ssh/aur_key
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/aur_key
           ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+          # Configure SSH config to use the key for aur.archlinux.org
+          cat >> ~/.ssh/config <<EOF
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur_key
+            User aur
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Push source package to AUR
         run: |
