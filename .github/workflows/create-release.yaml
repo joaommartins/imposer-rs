@@ -79,41 +79,22 @@ jobs:
           name: release-artifacts
           path: release_artifacts
 
-      - name: Create a Release
-        uses: elgohr/Github-Release-Action@v5
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.current_version }}
+          name: v${{ needs.check-version.outputs.current_version }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            target/release/imposer
+            release_artifacts/imposer-v${{ needs.check-version.outputs.current_version }}.tar.gz
+            release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz
+            release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-bin.tar.gz
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          title: v${{ needs.check-version.outputs.current_version }}
-          tag: v${{ needs.check-version.outputs.current_version }}
-
-      - name: Upload binary using taiki-e/upload-rust-binary-action
-        uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/imposer
-          name: imposer-${{ needs.check-version.outputs.current_version }}-linux-x86_64
-
-      - name: Upload source tarball (taiki-e)
-        uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file: release_artifacts/imposer-v${{ needs.check-version.outputs.current_version }}.tar.gz
-          name: imposer-v${{ needs.check-version.outputs.current_version }}.tar.gz
-
-      - name: Upload AUR source bundle (taiki-e)
-        uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file: release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz
-          name: imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz
-
-      - name: Upload AUR binary bundle (taiki-e)
-        uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file: release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-bin.tar.gz
-          name: imposer-${{ needs.check-version.outputs.current_version }}-aur-bin.tar.gz
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-artifacts:
     needs:
