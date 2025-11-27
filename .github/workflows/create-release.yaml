@@ -378,6 +378,15 @@ jobs:
           # Extract the AUR source bundle
           tar -xzf ../release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz -C .
 
+          # Generate .SRCINFO from PKGBUILD using makepkg (need non-root user)
+          docker run --rm -v $PWD:/work -w /work archlinux:latest /bin/bash -lc "
+            pacman -Sy --noconfirm base-devel >/dev/null 2>&1 || true
+            pacman -Sy --noconfirm --needed base-devel
+            useradd -m builder
+            chown -R builder:builder /work
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO
+          "
+
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
           git push origin HEAD:master --force || true
@@ -392,7 +401,14 @@ jobs:
           tar -xzf release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz -C $tmpdir
 
           # Use the official archlinux:latest image to run makepkg checks
-          docker run --rm -v $tmpdir:/work -w /work archlinux:latest /bin/bash -lc "pacman -Sy --noconfirm base-devel namcap >/dev/null 2>&1 || true; pacman -Sy --noconfirm --needed base-devel namcap; makepkg --printsrcinfo; namcap PKGBUILD || true"
+          docker run --rm -v $tmpdir:/work -w /work archlinux:latest /bin/bash -lc "
+            pacman -Sy --noconfirm base-devel namcap >/dev/null 2>&1 || true
+            pacman -Sy --noconfirm --needed base-devel namcap
+            useradd -m builder
+            chown -R builder:builder /work
+            sudo -u builder makepkg --printsrcinfo
+            namcap PKGBUILD || true
+          "
 
       - name: Push binary package to AUR
         run: |
@@ -412,6 +428,15 @@ jobs:
 
           # Extract the AUR binary bundle
           tar -xzf ../release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-bin.tar.gz -C .
+
+          # Generate .SRCINFO from PKGBUILD using makepkg (need non-root user)
+          docker run --rm -v $PWD:/work -w /work archlinux:latest /bin/bash -lc "
+            pacman -Sy --noconfirm base-devel >/dev/null 2>&1 || true
+            pacman -Sy --noconfirm --needed base-devel
+            useradd -m builder
+            chown -R builder:builder /work
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO
+          "
 
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
