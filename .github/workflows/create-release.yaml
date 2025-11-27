@@ -386,7 +386,9 @@ jobs:
             pacman -Sy --noconfirm --needed base-devel
             useradd -m builder
             chown -R builder:builder /work
-            sudo -u builder makepkg --printsrcinfo > .SRCINFO
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO.tmp
+            chown root:root .SRCINFO.tmp
+            mv .SRCINFO.tmp .SRCINFO
           "
 
           git add .
@@ -437,7 +439,9 @@ jobs:
             pacman -Sy --noconfirm --needed base-devel
             useradd -m builder
             chown -R builder:builder /work
-            sudo -u builder makepkg --printsrcinfo > .SRCINFO
+            sudo -u builder makepkg --printsrcinfo > .SRCINFO.tmp
+            chown root:root .SRCINFO.tmp
+            mv .SRCINFO.tmp .SRCINFO
           "
 
           git add .
