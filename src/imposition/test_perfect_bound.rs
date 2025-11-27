@@ -203,7 +203,7 @@ fn test_perfect_bound_blanks_in_saddle_stitch_positions() {
     // Verify that all pages 1-10 appear exactly once
     for page in 1..=10 {
         let count = flat.iter().filter(|&&p| p == page).count();
-        assert_eq!(count, 1, "Page {} should appear exactly once", page);
+        assert_eq!(count, 1, "Page {page} should appear exactly once");
     }
 
     // Verify we have the correct number of blanks
@@ -307,7 +307,7 @@ fn test_perfect_bound_zero_sheets_per_signature() {
     let ordering = calculate_perfect_bound_order(8, 2, 0);
     // Implementation should handle this - either default to 1 or return empty
     assert!(
-        ordering.len() == 0 || ordering.len() == 4,
+        ordering.is_empty() || ordering.len() == 4,
         "Should handle zero sheets per signature"
     );
 }
@@ -696,7 +696,7 @@ fn test_perfect_bound_109_pages_2up_2sheets_detailed_ordering() {
         .flat_map(|s| s.iter().copied())
         .collect();
 
-    println!("Last signature pages: {:?}", last_sig_pages);
+    println!("Last signature pages: {last_sig_pages:?}");
 
     // Verify expected saddle-stitch pattern:
     // [0, 105] (front side of sheet 1)
@@ -713,7 +713,7 @@ fn test_perfect_bound_109_pages_2up_2sheets_detailed_ordering() {
     // Count occurrences of each page 105-109
     for page in 105..=109 {
         let count = last_sig_pages.iter().filter(|&&p| p == page).count();
-        assert_eq!(count, 1, "Page {} should appear exactly once in last signature", page);
+        assert_eq!(count, 1, "Page {page} should appear exactly once in last signature");
     }
 
     // Verify we have exactly 5 real pages and 3 blanks in last signature
@@ -731,7 +731,7 @@ fn test_saddle_stitch_5_pages_2up_debug() {
     let ordering = calculate_saddle_stitch_order(5, 2);
     println!("Saddle stitch ordering for 5 pages, 2-up:");
     for (i, side) in ordering.iter().enumerate() {
-        println!("  Side {}: {:?}", i, side);
+        println!("  Side {i}: {side:?}");
     }
 }
 
@@ -756,10 +756,10 @@ fn test_perfect_bound_109_pages_2up_2sheets_sheet_structure() {
     let last_sheet2_back = &ordering[55];
 
     println!("Last 2 sheets:");
-    println!("  Sheet 1 front: {:?}", last_sheet1_front);
-    println!("  Sheet 1 back:  {:?}", last_sheet1_back);
-    println!("  Sheet 2 front: {:?}", last_sheet2_front);
-    println!("  Sheet 2 back:  {:?}", last_sheet2_back);
+    println!("  Sheet 1 front: {last_sheet1_front:?}");
+    println!("  Sheet 1 back:  {last_sheet1_back:?}");
+    println!("  Sheet 2 front: {last_sheet2_front:?}");
+    println!("  Sheet 2 back:  {last_sheet2_back:?}");
 
     // EXPECTED: The saddle-stitch nesting pattern is preserved exactly
     // For 5 pages with 2-up saddle stitch: [0,1], [2,0], [0,3], [4,5]
@@ -783,7 +783,7 @@ fn test_perfect_bound_109_pages_2up_2sheets_sheet_structure() {
     .collect();
 
     for page in 105..=109 {
-        assert!(all_pages.contains(&page), "Page {} should be present", page);
+        assert!(all_pages.contains(&page), "Page {page} should be present");
     }
 
     // There should be 3 blanks across the 4 sides

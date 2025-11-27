@@ -164,6 +164,53 @@ If you run `imposer -i input.pdf -o output.pdf` with no other options:
 cargo build --release
 ```
 
+## Development
+
+This project uses [cargo-make](https://github.com/sagiegurari/cargo-make) to replicate CI checks locally.
+
+### Install cargo-make
+
+```bash
+cargo install cargo-make
+```
+
+### Run all CI checks
+
+```bash
+cargo make
+```
+
+This runs all checks that CI performs:
+- Code formatting (`cargo fmt --check`)
+- Clippy linting (`cargo clippy`)
+- Rust tests (`cargo nextest run`)
+- Python bindings build and tests
+- Python bindings synchronization check
+
+### Available tasks
+
+- `cargo make` - Run all CI checks (default)
+- `cargo make quick` - Quick checks (format + clippy only)
+- `cargo make rust-only` - Rust checks only (skip Python)
+- `cargo make all-continue` - Run all checks, continue on errors (useful for debugging)
+- `cargo make fmt` - Auto-format code
+- `cargo make clippy-fix` - Auto-fix clippy issues
+- `cargo make test` - Run Rust tests only
+- `cargo make python-test` - Run Python tests only
+- `cargo make --list-all-steps` - List all available tasks
+
+**Note:** The default task stops on first error (matching CI behavior). If you want to run all checks even when some fail, use `cargo make all-continue`.
+
+### Pre-commit workflow
+
+Before committing, ensure all checks pass:
+
+```bash
+cargo make
+```
+
+If `cargo make` passes locally, CI should also pass.
+
 ## Try it
 
 ```bash
@@ -233,4 +280,124 @@ All options and defaults are available via the help command:
 
 ```bash
 imposer --help
+```
+
+## Python bindings
+
+`imposer` also provides Python bindings via PyO3, allowing you to use the library directly in Python code. This is useful for:
+- Integrating PDF imposition into Python applications
+- Batch processing PDFs programmatically
+- Embedding booklet generation in web services
+- Automating workflows in tools like Scribus
+
+### Installation
+
+Install the Python package from PyPI:
+
+```bash
+pip install imposer
+```
+
+Or install locally from the repository:
+
+```bash
+pip install .
+```
+
+### Basic usage
+
+```python
+import imposer
+
+# Create a default 2-up A4 saddle-stitch booklet
+config = imposer.BookletConfig()
+imposer.generate_booklet_from_file("input.pdf", "output.pdf", config)
+```
+
+### Configuration options
+
+```python
+import imposer
+
+# Configure a custom booklet
+binding = imposer.BindingType.perfect_bound(
+    sheets_per_signature=8,  # 8 sheets per signature
+    num_signatures=3         # 3 total signatures
+)
+
+config = (
+    imposer.BookletConfig()
+    .with_page_size(imposer.PageSize.a4())
+    .with_pages_per_sheet(4)
+    .with_binding_type(binding)
+    .with_draw_guides(True)       # Draw cut/fold lines
+    .with_number_pages(True)      # Add page numbers
+    .with_scale_to_fit(True)      # Scale pages to fit
+    .with_preserve_aspect_ratio(True)
+)
+
+imposer.generate_booklet_from_file("input.pdf", "output.pdf", config)
+```
+
+### In-memory processing
+
+Process PDFs without intermediate files:
+
+```python
+import imposer
+
+# Read input PDF
+with open("input.pdf", "rb") as f:
+    input_bytes = f.read()
+
+# Generate booklet configuration
+config = imposer.BookletConfig()
+
+# Process in memory
+output_bytes = imposer.generate_booklet(input_bytes, config)
+
+# Write output
+with open("output.pdf", "wb") as f:
+    f.write(output_bytes)
+```
+
+### Available page sizes
+
+```python
+imposer.PageSize.a4()      # A4 (210 × 297 mm)
+imposer.PageSize.a3()      # A3 (297 × 420 mm)
+imposer.PageSize.a5()      # A5 (148 × 210 mm)
+imposer.PageSize.letter()  # Letter (8.5 × 11 in)
+imposer.PageSize.legal()   # Legal (8.5 × 14 in)
+imposer.PageSize.tabloid() # Tabloid (11 × 17 in)
+```
+
+### Binding types
+
+```python
+# Saddle-stitch (default): pages nested, stapled in the middle
+binding = imposer.BindingType.saddle_stitch()
+
+# Perfect binding: signatures stacked, glued at spine
+binding = imposer.BindingType.perfect_bound(
+    sheets_per_signature=4,    # Pages per signature (default: 1)
+    num_signatures=None        # Override with specific signature count
+)
+```
+
+### Examples
+
+See `examples/python_example.py` for detailed examples including:
+- Basic booklet creation
+- Different page sizes
+- Various n-up layouts
+- Perfect binding with signatures
+- Guides and page numbers
+- In-memory processing
+- Scribus integration
+
+Run the example:
+
+```bash
+python examples/python_example.py input.pdf
 ```

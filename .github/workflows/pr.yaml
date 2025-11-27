@@ -48,3 +48,56 @@ jobs:
 
       - name: Run tests (nextest)
         run: cargo nextest run
+
+  python-bindings-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-python-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-python-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install maturin pytest tree-sitter tree-sitter-rust
+
+      - name: Build Python bindings
+        run: |
+          source .venv/bin/activate
+          maturin develop --features python
+
+      - name: Run Python tests
+        run: |
+          source .venv/bin/activate
+          pytest tests/ -v
+
+      - name: Verify bindings are up to date
+        run: |
+          source .venv/bin/activate
+          python scripts/check_bindings_sync.py
