@@ -16,29 +16,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           components: clippy, rustfmt
-          profile: minimal
-          override: true
 
       - name: Cache cargo registry and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          # Hash Cargo.lock when present; fall back to Cargo.toml to ensure
-          # the key is never empty for libraries that don't check in Cargo.lock.
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+        uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-nextest
-        run: cargo install --locked cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
 
       - name: Run rustfmt check
         run: cargo fmt --all -- --check
@@ -55,12 +44,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,15 +56,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Cache cargo registry and build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-python-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-python-${{ hashFiles('**/Cargo.toml') }}
+        uses: Swatinem/rust-cache@v2
 
       - name: Install Python dependencies
         run: |
