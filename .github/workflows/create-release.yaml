@@ -155,7 +155,7 @@ jobs:
 
           # cargo-aur creates a -bin PKGBUILD, we need to modify it for source package
           # Extract info from cargo-aur generated PKGBUILD
-          pkgdesc=$(grep '^pkgdesc=' PKGBUILD | cut -d'"' -f2)
+          pkgdesc=$(grep '^pkgdesc=' target/cargo-aur/PKGBUILD | cut -d'"' -f2)
 
           cat > ${src_dir}/PKGBUILD <<EOF
           pkgname=imposer
