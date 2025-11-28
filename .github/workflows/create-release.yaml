@@ -195,7 +195,8 @@ jobs:
             /^pkgname=/ { print "pkgname=imposer-bin"; next }
             /^arch=/ { print; print "depends=(\"glibc\" \"gcc-libs\")"; next }
             { print }
-          ' PKGBUILD > ${bin_dir}/PKGBUILD
+          ' ${bin_dir}/PKGBUILD > ${bin_dir}/PKGBUILD.modified
+          mv ${bin_dir}/PKGBUILD.modified ${bin_dir}/PKGBUILD
 
           # Extract the binary tarball and copy it
           tar -xzf release_artifacts/imposer-${version}-x86_64.tar.gz -C ${bin_dir}/
