@@ -145,7 +145,7 @@ jobs:
           cargo aur
 
           # Move the generated tarball to release_artifacts
-          mv target/debug/cargo-aur/imposer-${version}-x86_64.tar.gz release_artifacts/
+          mv target/cargo-aur/imposer-${version}-x86_64.tar.gz release_artifacts/
 
           # Also create source tarball for GitHub release
           git archive --format=tar --prefix=imposer-v${version}/ HEAD | gzip > release_artifacts/imposer-v${version}.tar.gz
