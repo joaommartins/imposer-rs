@@ -126,78 +126,79 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
+      - name: Install cargo-aur
+        uses: taiki-e/install-action@v2
+        with:
+          tool: aur
+
       - name: Build release binary
         run: |
           cargo build --release --locked
 
-      - name: Prepare release artifacts
+      - name: Generate AUR package with cargo-aur
         run: |
           set -euo pipefail
           version=${{ needs.check-version.outputs.current_version }}
           mkdir -p release_artifacts
 
-          # Source tarball (Git snapshot)
-          git archive --format=tar --prefix=imposer-v${version}/ HEAD | gzip > release_artifacts/imposer-v${version}.tar.gz
-          # Compute checksums for the generated artifacts so PKGBUILDs can include them
-          src_tar=release_artifacts/imposer-v${version}.tar.gz
-          src_sum=$(sha256sum "${src_tar}" | cut -d' ' -f1)
+          # cargo-aur generates: PKGBUILD and imposer-{version}-x86_64.tar.gz
+          cargo aur
 
-          # Prepare AUR source package: PKGBUILD that builds from the shipped tarball
-          aur_dir=$(mktemp -d)
-          cat > ${aur_dir}/PKGBUILD <<'PKGBUILD'
+          # Move the generated tarball to release_artifacts
+          mv imposer-${version}-x86_64.tar.gz release_artifacts/
+
+          # Also create source tarball for GitHub release
+          git archive --format=tar --prefix=imposer-v${version}/ HEAD | gzip > release_artifacts/imposer-v${version}.tar.gz
+
+          # For AUR source package: create modified PKGBUILD that builds from source
+          src_dir=$(mktemp -d)
+
+          # cargo-aur creates a -bin PKGBUILD, we need to modify it for source package
+          # Extract info from cargo-aur generated PKGBUILD
+          pkgdesc=$(grep '^pkgdesc=' PKGBUILD | cut -d'"' -f2)
+
+          cat > ${src_dir}/PKGBUILD <<EOF
           pkgname=imposer
-          pkgver=REPLACE_VERSION
+          pkgver=${version}
           pkgrel=1
-          pkgdesc="Imposer - PDF imposition tool"
+          pkgdesc="${pkgdesc}"
           arch=('x86_64')
-          url="https://github.com/${GITHUB_REPOSITORY}"
+          url="https://github.com/joaommartins/imposer-rs"
           license=('MIT' 'Apache-2.0')
-          source=("imposer-v${pkgver}.tar.gz")
-          sha256sums=("REPLACE_SRC_SUM")
+          makedepends=('cargo' 'rust')
+          source=("imposer-v\${pkgver}.tar.gz::https://github.com/joaommartins/imposer-rs/archive/v\${pkgver}.tar.gz")
+          sha256sums=('SKIP')
 
           build() {
-            cd "${pkgname}-${pkgver}"
+            cd "imposer-rs-\${pkgver}"
             cargo build --release --locked
           }
 
           package() {
-            install -Dm755 "target/release/imposer" "$pkgdir/usr/bin/imposer"
+            cd "imposer-rs-\${pkgver}"
+            install -Dm755 "target/release/imposer" "\$pkgdir/usr/bin/imposer"
           }
-          PKGBUILD
+          EOF
 
-          # Replace placeholders with actual values
-          sed -i "s/REPLACE_VERSION/${version}/g" ${aur_dir}/PKGBUILD
-          sed -i "s/REPLACE_SRC_SUM/${src_sum}/g" ${aur_dir}/PKGBUILD
+          # Create AUR source package tarball
+          cp release_artifacts/imposer-v${version}.tar.gz ${src_dir}/
+          (cd ${src_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-src.tar.gz PKGBUILD)
 
-          # Create AUR source tarball that contains PKGBUILD and the upstream source tarball
-          cp "${src_tar}" ${aur_dir}/
-          (cd ${aur_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-src.tar.gz PKGBUILD imposer-v${version}.tar.gz)
-
-          # Also prepare a simple -bin package tarball containing PKGBUILD that installs the provided binary
+          # For binary package: use cargo-aur generated PKGBUILD but add dependencies
           bin_dir=$(mktemp -d)
-          cp target/release/imposer ${bin_dir}/imposer-${version}-linux-x86_64
-          bin_sum=$(sha256sum "${bin_dir}/imposer-${version}-linux-x86_64" | cut -d' ' -f1)
 
-          cat > ${bin_dir}/PKGBUILD <<'PKGBUILD'
-          pkgname=imposer-bin
-          pkgver=REPLACE_VERSION
-          pkgrel=1
-          pkgdesc="Imposer (binary package) - PDF imposition tool"
-          arch=('x86_64')
-          url="https://github.com/${GITHUB_REPOSITORY}"
-          license=('MIT' 'Apache-2.0')
-          source=("imposer-${pkgver}-linux-x86_64")
-          sha256sums=("REPLACE_BIN_SUM")
+          # Modify the cargo-aur PKGBUILD: rename to imposer-bin and add depends
+          awk '
+            /^pkgname=/ { print "pkgname=imposer-bin"; next }
+            /^arch=/ { print; print "depends=(\"glibc\" \"gcc-libs\")"; next }
+            { print }
+          ' PKGBUILD > ${bin_dir}/PKGBUILD
 
-          package() {
-            install -Dm755 "imposer-${pkgver}-linux-x86_64" "$pkgdir/usr/bin/imposer"
-          }
-          PKGBUILD
+          # Extract the binary tarball and copy it
+          tar -xzf release_artifacts/imposer-${version}-x86_64.tar.gz -C ${bin_dir}/
 
-          sed -i "s/REPLACE_VERSION/${version}/g" ${bin_dir}/PKGBUILD
-          sed -i "s/REPLACE_BIN_SUM/${bin_sum}/g" ${bin_dir}/PKGBUILD
-
-          (cd ${bin_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-bin.tar.gz PKGBUILD imposer-${version}-linux-x86_64)
+          # Create binary package tarball
+          (cd ${bin_dir} && tar -czf ${GITHUB_WORKSPACE}/release_artifacts/imposer-${version}-aur-bin.tar.gz PKGBUILD imposer)
 
       - name: List release artifacts
         run: |
@@ -377,42 +378,24 @@ jobs:
             git remote add origin "$remote"
           fi
 
-          # Extract the AUR source bundle
+          # Extract the AUR source bundle (just PKGBUILD now)
           tar -xzf ../release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz -C .
 
-          # Generate .SRCINFO from PKGBUILD using makepkg (need non-root user)
-          docker run --rm -v $PWD:/work -w /work archlinux:latest /bin/bash -lc "
+          # Generate .SRCINFO using a temp container
+          cd ..
+          mkdir -p srcinfo_temp
+          cp aurrepo/PKGBUILD srcinfo_temp/
+          docker run --rm -v $PWD/srcinfo_temp:/work -w /work archlinux:latest /bin/bash -lc "
             pacman -Sy --noconfirm base-devel >/dev/null 2>&1 || true
             pacman -Sy --noconfirm --needed base-devel
-            useradd -m builder
-            chown -R builder:builder /work
-            sudo -u builder makepkg --printsrcinfo > .SRCINFO.tmp
-            chown root:root .SRCINFO.tmp
-            mv .SRCINFO.tmp .SRCINFO
-          "
+            useradd -m builder || true
+            sudo -u builder makepkg --printsrcinfo
+          " > aurrepo/.SRCINFO
+          cd aurrepo
 
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
           git push origin HEAD:master --force || true
-
-      - name: Verify AUR packages locally (Arch docker)
-        run: |
-          set -euo pipefail
-          # Use the extracted files from the previous step which are now in aurrepo/
-          # But wait, the previous step pushed from aurrepo. Let's just use the artifact again to be clean.
-
-          tmpdir=$(mktemp -d)
-          tar -xzf release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-src.tar.gz -C $tmpdir
-
-          # Use the official archlinux:latest image to run makepkg checks
-          docker run --rm -v $tmpdir:/work -w /work archlinux:latest /bin/bash -lc "
-            pacman -Sy --noconfirm base-devel namcap >/dev/null 2>&1 || true
-            pacman -Sy --noconfirm --needed base-devel namcap
-            useradd -m builder
-            chown -R builder:builder /work
-            sudo -u builder makepkg --printsrcinfo
-            namcap PKGBUILD || true
-          "
 
       - name: Push binary package to AUR
         run: |
@@ -433,16 +416,17 @@ jobs:
           # Extract the AUR binary bundle
           tar -xzf ../release_artifacts/imposer-${{ needs.check-version.outputs.current_version }}-aur-bin.tar.gz -C .
 
-          # Generate .SRCINFO from PKGBUILD using makepkg (need non-root user)
-          docker run --rm -v $PWD:/work -w /work archlinux:latest /bin/bash -lc "
+          # Generate .SRCINFO using a temp container
+          cd ..
+          mkdir -p srcinfo_temp_bin
+          cp aurrepo-bin/PKGBUILD aurrepo-bin/imposer srcinfo_temp_bin/
+          docker run --rm -v $PWD/srcinfo_temp_bin:/work -w /work archlinux:latest /bin/bash -lc "
             pacman -Sy --noconfirm base-devel >/dev/null 2>&1 || true
             pacman -Sy --noconfirm --needed base-devel
-            useradd -m builder
-            chown -R builder:builder /work
-            sudo -u builder makepkg --printsrcinfo > .SRCINFO.tmp
-            chown root:root .SRCINFO.tmp
-            mv .SRCINFO.tmp .SRCINFO
-          "
+            useradd -m builder || true
+            sudo -u builder makepkg --printsrcinfo
+          " > aurrepo-bin/.SRCINFO
+          cd aurrepo-bin
 
           git add .
           git -c user.name="imposer-bot" -c user.email="noreply@github.com" commit -m "Release v${{ needs.check-version.outputs.current_version }}" || true
