@@ -187,6 +187,9 @@ jobs:
           # For binary package: use cargo-aur generated PKGBUILD but add dependencies
           bin_dir=$(mktemp -d)
 
+          # Copy cargo-aur generated PKGBUILD
+          cp target/cargo-aur/PKGBUILD ${bin_dir}/
+
           # Modify the cargo-aur PKGBUILD: rename to imposer-bin and add depends
           awk '
             /^pkgname=/ { print "pkgname=imposer-bin"; next }
