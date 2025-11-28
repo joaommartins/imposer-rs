@@ -312,7 +312,8 @@ jobs:
   push-to-crates-io:
     needs:
       - create-release
-    if: needs.check-version.outputs.version_changed == 'true'
+    # if: needs.check-version.outputs.version_changed == 'true'
+    if: false
     runs-on: ubuntu-latest
 
     steps:
@@ -440,7 +441,8 @@ jobs:
       - build-python-wheels-macos
       - build-python-wheels-windows
       - build-python-sdist
-    if: needs.check-version.outputs.version_changed == 'true'
+    # if: needs.check-version.outputs.version_changed == 'true'
+    if: false
     runs-on: ubuntu-latest
     environment:
       name: pypi
