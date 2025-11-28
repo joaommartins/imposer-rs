@@ -129,7 +129,7 @@ jobs:
       - name: Install cargo-aur
         uses: taiki-e/install-action@v2
         with:
-          tool: aur
+          tool: cargo-aur
 
       - name: Build release binary
         run: |
